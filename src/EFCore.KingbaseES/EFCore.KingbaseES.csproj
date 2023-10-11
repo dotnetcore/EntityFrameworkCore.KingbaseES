@@ -7,7 +7,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/dotnetcore/EntityFrameworkCore.KingbaseES</RepositoryUrl>
     <Description>KingbaseES provider for Entity Framework Core.</Description>
-    <PackageTags>kingbaseeS;kdbndp;Entity Framework Core;entity-framework-core;ef;efcore;orm;sql</PackageTags>
+    <PackageTags>Kingbasees;kdbndp;Entity Framework Core;entity-framework-core;ef;efcore;orm;sql</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesAssemblyToPackage</TargetsForTfmSpecificBuildOutput>
   </PropertyGroup>

@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34031.279
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4A5A60DD-41B6-40BF-B677-227A921ECCC8}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+		Directory.Packages.props = Directory.Packages.props
+		Npgsql.snk = Npgsql.snk
+		NuGet.config = NuGet.config
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8537E50E-CF7F-49CB-B4EF-3E2A1B11F050}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{ED612DB1-AB32-4603-95E7-891BACA71C39}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.KingbaseES", "src\EFCore.KingbaseES\EFCore.KingbaseES.csproj", "{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Release|x64.ActiveCfg = Release|Any CPU
+		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Release|x86.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A} = {8537E50E-CF7F-49CB-B4EF-3E2A1B11F050}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F4EAAE6D-758C-4184-9D8C-7113384B61A8}
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		StartupItem = Npgsql.csproj
+	EndGlobalSection
+EndGlobal

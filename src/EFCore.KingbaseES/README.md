@@ -1,6 +1,6 @@
-# DotNetCore Entity Framework Core provider for KingbaseES
+# Kdbndp Entity Framework Core provider for KingbaseES
 
-DotNetCore.EntityFrameworkCore.KingbaseES is the open source EF Core provider for KingbaseES. It allows you to interact with KingbaseES via the most widely-used .NET O/RM from Microsoft, and use familiar LINQ syntax to express queries.
+Kdbndp.EntityFrameworkCore.KingbaseES is the open source EF Core provider for KingbaseES. It allows you to interact with KingbaseES via the most widely-used .NET O/RM from Microsoft, and use familiar LINQ syntax to express queries. It's built on top of [Kdbndp](https://github.com/Kdbndp/Kdbndp).
 
 The provider looks and feels just like any other Entity Framework Core provider. Here's a quick sample to get you started:
 
@@ -30,3 +30,6 @@ public class Blog
     public string Name { get; set; }
 }
 ```
+
+Aside from providing general EF Core support for KingbaseES, the provider also exposes some KingbaseES-specific capabilities, allowing you to query JSON, array or range columns, as well as many other advanced features. For more information, see the [the Kdbndp site](http://www.Kdbndp.org/efcore/index.html). For information about EF Core in general, see the [EF Core website](https://docs.microsoft.com/ef/core/).
+

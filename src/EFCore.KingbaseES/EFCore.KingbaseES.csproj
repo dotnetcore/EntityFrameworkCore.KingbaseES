@@ -1,0 +1,71 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>DotNetCore.EntityFrameworkCore.KingbaseES</AssemblyName>
+    <RootNamespace>DotNetCore.EntityFrameworkCore.KingbaseES</RootNamespace>
+    <Authors>NCC;Jeffcky</Authors>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/dotnetcore/EntityFrameworkCore.KingbaseES</RepositoryUrl>
+    <Description>KingbaseES provider for Entity Framework Core.</Description>
+    <PackageTags>kingbaseeS;kdbndp;Entity Framework Core;entity-framework-core;ef;efcore;orm;sql</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesAssemblyToPackage</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- PrivateAssets="none" is set to flow the EF Core analyzer to users referencing this package https://github.com/aspnet/EntityFrameworkCore/pull/11350 -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" PrivateAssets="none" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" />
+    <None Remove="D:\work\github\EntityFrameworkCore.KingbaseES\postgresql.png" />
+
+    <None Update="Properties\KdbndpStrings.Designer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>KdbndpStrings.Designer.cs</LastGenOutput>
+    </None>
+
+    <None Update="Properties\SqlServerStrings.Designer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+    </None>
+
+    <EmbeddedResource Update="Properties\KdbndpStrings.resx">
+      <CustomToolNamespace>Kdbndp.EntityFrameworkCore.KingbaseES.Internal</CustomToolNamespace>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <Target Name="CopyProjectReferencesAssemblyToPackage">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="Lib\Kdbndp.dll">
+        <PackagePath>lib\$(TargetFramework)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="Kdbndp">
+      <HintPath>Lib\Kdbndp.dll</HintPath>
+      <PrivateAssets>all</PrivateAssets>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\KdbndpStrings.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>KdbndpStrings.Designer.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+</Project>

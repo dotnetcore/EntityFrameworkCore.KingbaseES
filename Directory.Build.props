@@ -19,7 +19,4 @@
     <PackageProjectUrl>https://github.com/dotnetcore/EntityFrameworkCore.KingbaseES</PackageProjectUrl>
   </PropertyGroup>
 
-  <ItemGroup>
-    <None Include="$(MSBuildThisFileDirectory)postgresql.png" Pack="true" PackagePath="" />
-  </ItemGroup>
 </Project>

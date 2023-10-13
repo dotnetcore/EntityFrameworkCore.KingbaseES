@@ -18,6 +18,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{ED612DB1-A
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EFCore.KingbaseES", "src\EFCore.KingbaseES\EFCore.KingbaseES.csproj", "{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KingbaseES.BasicTest", "test\KingbaseES.BasicTest\KingbaseES.BasicTest.csproj", "{25141572-8051-4D49-98ED-7AE12F7EF9FC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -36,12 +38,25 @@ Global
 		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Release|x64.ActiveCfg = Release|Any CPU
 		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A}.Release|x86.ActiveCfg = Release|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Debug|x64.Build.0 = Debug|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Debug|x86.Build.0 = Debug|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Release|x64.ActiveCfg = Release|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Release|x64.Build.0 = Release|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Release|x86.ActiveCfg = Release|Any CPU
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{FADDA2D1-03B4-4DEF-8D24-DD1CA4E81F4A} = {8537E50E-CF7F-49CB-B4EF-3E2A1B11F050}
+		{25141572-8051-4D49-98ED-7AE12F7EF9FC} = {ED612DB1-AB32-4603-95E7-891BACA71C39}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {F4EAAE6D-758C-4184-9D8C-7113384B61A8}

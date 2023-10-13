@@ -21,7 +21,7 @@ public class BlogContext : DbContext
     public DbSet<Blog> Blogs { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        => optionsBuilder.UseKdbndp(@"host={host};port={port};database={database};user id={username};password={password};");
+        => optionsBuilder.UseKdbndp(@"host={host};port={port};database={database};username={username};password={password};");
 }
 
 public class Blog

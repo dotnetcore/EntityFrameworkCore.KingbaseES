@@ -9,11 +9,16 @@ namespace KingbaseES.BasicTest
         {
             var services = new ServiceCollection();
 
-            services.AddDbContext<BlogContext>(options => options.UseKdbndp(@"host=localhost;port=54321;database=test;user id=system;password=123456;"));
+            services.AddDbContext<BlogContext>(options =>
+            {
+                options.UseKdbndp(@"host=localhost;port=54321;database=test;user id=system;password=123456;");   
+            });
 
             var serviceProvider = services.BuildServiceProvider();
 
             var context = serviceProvider.GetRequiredService<BlogContext>();
+
+            context.Database.EnsureCreated();
 
             // get list
             var blogs = context.Blogs.ToList();

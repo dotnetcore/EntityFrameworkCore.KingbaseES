@@ -1,4 +1,4 @@
-# DotNetCore Entity Framework Core provider for KingbaseES£¨for R6 V008R006C008B0014£©
+# DotNetCore Entity Framework Core provider for KingbaseESKingbaseES for R6 V008R006C008B0014
 
 DotNetCore.EntityFrameworkCore.KingbaseES is the open source EF Core provider for KingbaseES. It allows you to interact with KingbaseES via the most widely-used .NET O/RM from Microsoft, and use familiar LINQ syntax to express queries.
 

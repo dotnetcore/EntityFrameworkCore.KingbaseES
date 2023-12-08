@@ -12,7 +12,7 @@ namespace KingbaseES.BasicTest.Migrations
 {
     [DbContext(typeof(BlogContext))]
     [Migration("20231013152623_initial")]
-    partial class initial
+    partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {

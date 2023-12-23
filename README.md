@@ -1,8 +1,8 @@
 # DotNetCore Entity Framework Core provider for KingbaseES for R6 V008R006C008B0014
 
 [![Member project of .NET Core Community](https://img.shields.io/badge/member%20project%20of-NCC-9e20c9.svg)](https://github.com/dotnetcore) 
-[![nuget](https://img.shields.io/nuget/v/DotNetCore.EntityFrameworkCore.GaussDB.svg?style=flat-square)](https://www.nuget.org/packages/DotNetCore.EntityFrameworkCore.GaussDB) 
-[![stats](https://img.shields.io/nuget/dt/DotNetCore.EntityFrameworkCore.GaussDB.svg?style=flat-square)](https://www.nuget.org/stats/packages/DotNetCore.EntityFrameworkCore.GaussDB?groupby=Version) 
+[![nuget](https://img.shields.io/nuget/v/DotNetCore.EntityFrameworkCore.KingbaseES.svg?style=flat-square)](https://www.nuget.org/packages/DotNetCore.EntityFrameworkCore.KingbaseES) 
+[![stats](https://img.shields.io/nuget/dt/DotNetCore.EntityFrameworkCore.KingbaseES.svg?style=flat-square)](https://www.nuget.org/stats/packages/DotNetCore.EntityFrameworkCore.KingbaseES?groupby=Version) 
 
 `DotNetCore.EntityFrameworkCore.KingbaseES` is an open source Entity Framework Core provider for KingbaseES. It supports you to interact with KingbaseES via EFCore, the most widely-used .NET O/RM from Microsoft, up to its latest version, and use familiar LINQ syntax to express queries.
 

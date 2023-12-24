@@ -1,28 +1,20 @@
-﻿using System;
-using System.Linq;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Utilities;
-using Kdbndp;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata;
+﻿using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
 using Kdbndp.NameTranslation;
-using KdbndpTypes;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore;
 
 /// <summary>
-/// Kdbndp specific extension methods for <see cref="ModelBuilder"/>.
+///     Kdbndp-specific extension methods for <see cref="ModelBuilder" />.
 /// </summary>
 public static class KdbndpModelBuilderExtensions
 {
     #region HiLo
 
     /// <summary>
-    /// Configures the model to use a sequence-based hi-lo pattern to generate values for properties
-    /// marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES.
+    ///     Configures the model to use a sequence-based hi-lo pattern to generate values for properties
+    ///     marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES.
     /// </summary>
     /// <param name="modelBuilder">The model builder.</param>
     /// <param name="name">The name of the sequence.</param>
@@ -46,6 +38,8 @@ public static class KdbndpModelBuilderExtensions
         model.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.SequenceHiLo);
         model.SetHiLoSequenceName(name);
         model.SetHiLoSequenceSchema(schema);
+        model.SetSequenceNameSuffix(null);
+        model.SetSequenceSchema(null);
 
         return modelBuilder;
     }
@@ -103,13 +97,13 @@ public static class KdbndpModelBuilderExtensions
     #region Serial
 
     /// <summary>
-    /// <para>
-    /// Configures the model to use the KingbaseES SERIAL feature to generate values for properties
-    /// marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES.
-    /// </para>
-    /// <para>
-    /// This option should be considered deprecated starting with KingbaseES 10, consider using <see cref="UseIdentityColumns"/> instead.
-    /// </para>
+    ///     <para>
+    ///         Configures the model to use the KingbaseES SERIAL feature to generate values for properties
+    ///         marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES.
+    ///     </para>
+    ///     <para>
+    ///         This option should be considered deprecated starting with KingbaseES 10, consider using <see cref="UseIdentityColumns" /> instead.
+    ///     </para>
     /// </summary>
     /// <param name="modelBuilder">The model builder.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -132,13 +126,13 @@ public static class KdbndpModelBuilderExtensions
     #region Identity
 
     /// <summary>
-    /// <para>
-    /// Configures the model to use the KingbaseES IDENTITY feature to generate values for properties
-    /// marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES. Values for these
-    /// columns will always be generated as identity, and the application will not be able to override
-    /// this behavior by providing a value.
-    /// </para>
-    /// <para>Available only starting KingbaseES 10.</para>
+    ///     <para>
+    ///         Configures the model to use the KingbaseES IDENTITY feature to generate values for properties
+    ///         marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES. Values for these
+    ///         columns will always be generated as identity, and the application will not be able to override
+    ///         this behavior by providing a value.
+    ///     </para>
+    ///     <para>Available only starting KingbaseES 10.</para>
     /// </summary>
     /// <param name="modelBuilder">The model builder.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -146,25 +140,27 @@ public static class KdbndpModelBuilderExtensions
     {
         Check.NotNull(modelBuilder, nameof(modelBuilder));
 
-        var property = modelBuilder.Model;
+        var model = modelBuilder.Model;
 
-        property.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.IdentityAlwaysColumn);
-        property.SetHiLoSequenceName(null);
-        property.SetHiLoSequenceSchema(null);
+        model.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.IdentityAlwaysColumn);
+        model.SetSequenceNameSuffix(null);
+        model.SetSequenceSchema(null);
+        model.SetHiLoSequenceName(null);
+        model.SetHiLoSequenceSchema(null);
 
         return modelBuilder;
     }
 
     /// <summary>
-    /// <para>
-    /// Configures the model to use the KingbaseES IDENTITY feature to generate values for properties
-    /// marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES. Values for these
-    /// columns will be generated as identity by default, but the application will be able to override
-    /// this behavior by providing a value.
-    /// </para>
-    /// <para>
-    /// This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
-    /// </para>
+    ///     <para>
+    ///         Configures the model to use the KingbaseES IDENTITY feature to generate values for properties
+    ///         marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES. Values for these
+    ///         columns will be generated as identity by default, but the application will be able to override
+    ///         this behavior by providing a value.
+    ///     </para>
+    ///     <para>
+    ///         This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
+    ///     </para>
     /// </summary>
     /// <param name="modelBuilder">The model builder.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -172,25 +168,27 @@ public static class KdbndpModelBuilderExtensions
     {
         Check.NotNull(modelBuilder, nameof(modelBuilder));
 
-        var property = modelBuilder.Model;
+        var model = modelBuilder.Model;
 
-        property.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.IdentityByDefaultColumn);
-        property.SetHiLoSequenceName(null);
-        property.SetHiLoSequenceSchema(null);
+        model.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.IdentityByDefaultColumn);
+        model.SetSequenceNameSuffix(null);
+        model.SetSequenceSchema(null);
+        model.SetHiLoSequenceName(null);
+        model.SetHiLoSequenceSchema(null);
 
         return modelBuilder;
     }
 
     /// <summary>
-    /// <para>
-    /// Configures the model to use the KingbaseES IDENTITY feature to generate values for properties
-    /// marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES. Values for these
-    /// columns will be generated as identity by default, but the application will be able to override
-    /// this behavior by providing a value.
-    /// </para>
-    /// <para>
-    /// This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
-    /// </para>
+    ///     <para>
+    ///         Configures the model to use the KingbaseES IDENTITY feature to generate values for properties
+    ///         marked as <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES. Values for these
+    ///         columns will be generated as identity by default, but the application will be able to override
+    ///         this behavior by providing a value.
+    ///     </para>
+    ///     <para>
+    ///         This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
+    ///     </para>
     /// </summary>
     /// <param name="modelBuilder">The model builder.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -198,26 +196,36 @@ public static class KdbndpModelBuilderExtensions
         => modelBuilder.UseIdentityByDefaultColumns();
 
     /// <summary>
-    /// Configures the value generation strategy for the key property, when targeting KingbaseES.
+    ///     Configures the value generation strategy for the key property, when targeting KingbaseES.
     /// </summary>
     /// <param name="modelBuilder">The builder for the property being configured.</param>
     /// <param name="valueGenerationStrategy">The value generation strategy.</param>
     /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
     /// <returns>
-    /// The same builder instance if the configuration was applied, <c>null</c> otherwise.
+    ///     The same builder instance if the configuration was applied, <c>null</c> otherwise.
     /// </returns>
     public static IConventionModelBuilder? HasValueGenerationStrategy(
         this IConventionModelBuilder modelBuilder,
         KdbndpValueGenerationStrategy? valueGenerationStrategy,
         bool fromDataAnnotation = false)
     {
-        if (modelBuilder.CanSetAnnotation(
-                KdbndpAnnotationNames.ValueGenerationStrategy, valueGenerationStrategy, fromDataAnnotation))
+        if (modelBuilder.CanSetValueGenerationStrategy(valueGenerationStrategy, fromDataAnnotation))
         {
             modelBuilder.Metadata.SetValueGenerationStrategy(valueGenerationStrategy, fromDataAnnotation);
+
             if (valueGenerationStrategy != KdbndpValueGenerationStrategy.SequenceHiLo)
             {
                 modelBuilder.HasHiLoSequence(null, null, fromDataAnnotation);
+            }
+
+            if (valueGenerationStrategy != KdbndpValueGenerationStrategy.Sequence)
+            {
+                if (modelBuilder.CanSetAnnotation(KdbndpAnnotationNames.SequenceNameSuffix, null)
+                    && modelBuilder.CanSetAnnotation(KdbndpAnnotationNames.SequenceSchema, null))
+                {
+                    modelBuilder.Metadata.SetSequenceNameSuffix(null, fromDataAnnotation);
+                    modelBuilder.Metadata.SetSequenceSchema(null, fromDataAnnotation);
+                }
             }
 
             return modelBuilder;
@@ -246,22 +254,55 @@ public static class KdbndpModelBuilderExtensions
 
     #endregion Identity
 
+    #region Sequence
+
+    /// <summary>
+    ///     Configures the model to use a sequence per hierarchy to generate values for key properties marked as
+    ///     <see cref="ValueGenerated.OnAdd" />, when targeting KingbaseES.
+    /// </summary>
+    /// <param name="modelBuilder">The model builder.</param>
+    /// <param name="nameSuffix">The name that will suffix the table name for each sequence created automatically.</param>
+    /// <param name="schema">The schema of the sequence.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    public static ModelBuilder UseKeySequences(
+        this ModelBuilder modelBuilder,
+        string? nameSuffix = null,
+        string? schema = null)
+    {
+        Check.NullButNotEmpty(nameSuffix, nameof(nameSuffix));
+        Check.NullButNotEmpty(schema, nameof(schema));
+
+        var model = modelBuilder.Model;
+
+        nameSuffix ??= KdbndpModelExtensions.DefaultSequenceNameSuffix;
+
+        model.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.Sequence);
+        model.SetSequenceNameSuffix(nameSuffix);
+        model.SetSequenceSchema(schema);
+        model.SetHiLoSequenceName(null);
+        model.SetHiLoSequenceSchema(null);
+
+        return modelBuilder;
+    }
+
+    #endregion Sequence
+
     #region Extensions
 
     /// <summary>
-    /// Registers a KingbaseES extension in the model.
+    ///     Registers a KingbaseES extension in the model.
     /// </summary>
     /// <param name="modelBuilder">The model builder in which to define the extension.</param>
     /// <param name="schema">The schema in which to create the extension.</param>
     /// <param name="name">The name of the extension to create.</param>
     /// <param name="version">The version of the extension.</param>
-    /// <returns>
-    /// The updated <see cref="ModelBuilder"/>.
-    /// </returns>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     /// <remarks>
-    /// See: https://www.KingbaseES.org/docs/current/external-extensions.html
+    ///     See: https://www.KingbaseES.org/docs/current/external-extensions.html
     /// </remarks>
-    /// <exception cref="ArgumentNullException"><paramref name="modelBuilder"/></exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="modelBuilder" />
+    /// </exception>
     public static ModelBuilder HasPostgresExtension(
         this ModelBuilder modelBuilder,
         string? schema,
@@ -278,38 +319,114 @@ public static class KdbndpModelBuilderExtensions
     }
 
     /// <summary>
-    /// Registers a KingbaseES extension in the model.
+    ///     Registers a KingbaseES extension in the model.
     /// </summary>
     /// <param name="modelBuilder">The model builder in which to define the extension.</param>
     /// <param name="name">The name of the extension to create.</param>
-    /// <returns>
-    /// The updated <see cref="ModelBuilder"/>.
-    /// </returns>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     /// <remarks>
-    /// See: https://www.KingbaseES.org/docs/current/external-extensions.html
+    ///     See: https://www.KingbaseES.org/docs/current/external-extensions.html
     /// </remarks>
-    /// <exception cref="ArgumentNullException"><paramref name="modelBuilder"/></exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="modelBuilder" />
+    /// </exception>
     public static ModelBuilder HasPostgresExtension(
         this ModelBuilder modelBuilder,
         string name)
-        => modelBuilder.HasPostgresExtension(null, name, null);
+        => modelBuilder.HasPostgresExtension(null, name);
+
+    /// <summary>
+    ///     Registers a KingbaseES extension in the model.
+    /// </summary>
+    /// <param name="modelBuilder">The model builder in which to define the extension.</param>
+    /// <param name="schema">The schema in which to create the extension.</param>
+    /// <param name="name">The name of the extension to create.</param>
+    /// <param name="version">The version of the extension.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    /// <remarks>
+    ///     See: https://www.KingbaseES.org/docs/current/external-extensions.html
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="modelBuilder" />
+    /// </exception>
+    public static IConventionModelBuilder? HasPostgresExtension(
+        this IConventionModelBuilder modelBuilder,
+        string? schema,
+        string name,
+        string? version = null,
+        bool fromDataAnnotation = false)
+    {
+        if (modelBuilder.CanSetPostgresExtension(schema, name, version, fromDataAnnotation))
+        {
+            modelBuilder.Metadata.GetOrAddPostgresExtension(schema, name, version);
+            return modelBuilder;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     Registers a KingbaseES extension in the model.
+    /// </summary>
+    /// <param name="modelBuilder">The model builder in which to define the extension.</param>
+    /// <param name="name">The name of the extension to create.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    /// <remarks>
+    ///     See: https://www.KingbaseES.org/docs/current/external-extensions.html
+    /// </remarks>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="modelBuilder" />
+    /// </exception>
+    public static IConventionModelBuilder? HasPostgresExtension(
+        this IConventionModelBuilder modelBuilder,
+        string name,
+        bool fromDataAnnotation = false)
+        => modelBuilder.HasPostgresExtension(schema: null, name, version: null, fromDataAnnotation);
+
+    /// <summary>
+    ///     Returns a value indicating whether the given KingbaseES extension can be registered in the model.
+    /// </summary>
+    /// <remarks>
+    ///     See <see href="https://aka.ms/efcore-docs-modeling">Modeling entity types and relationships</see>, and
+    ///     <see href="https://aka.ms/efcore-docs-sqlserver">Accessing SQL Server and SQL Azure databases with EF Core</see>
+    ///     for more information and examples.
+    /// </remarks>
+    /// <param name="modelBuilder">The model builder.</param>
+    /// <param name="schema">The schema in which to create the extension.</param>
+    /// <param name="name">The name of the extension to create.</param>
+    /// <param name="version">The version of the extension.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns><see langword="true" /> if the given value can be set as the default increment for SQL Server IDENTITY.</returns>
+    public static bool CanSetPostgresExtension(
+        this IConventionModelBuilder modelBuilder,
+        string? schema,
+        string name,
+        string? version = null,
+        bool fromDataAnnotation = false)
+    {
+        var annotationName = PostgresExtension.BuildAnnotationName(schema, name);
+
+        return modelBuilder.CanSetAnnotation(annotationName, $"{schema},{name},{version}", fromDataAnnotation);
+    }
 
     #endregion
 
     #region Enums
 
     /// <summary>
-    /// Registers a user-defined enum type in the model.
+    ///     Registers a user-defined enum type in the model.
     /// </summary>
     /// <param name="modelBuilder">The model builder in which to create the enum type.</param>
     /// <param name="schema">The schema in which to create the enum type.</param>
     /// <param name="name">The name of the enum type to create.</param>
     /// <param name="labels">The enum label values.</param>
     /// <returns>
-    /// The updated <see cref="ModelBuilder"/>.
+    ///     The updated <see cref="ModelBuilder" />.
     /// </returns>
     /// <remarks>
-    /// See: https://www.KingbaseES.org/docs/current/static/datatype-enum.html
+    ///     See: https://www.KingbaseES.org/docs/current/static/datatype-enum.html
     /// </remarks>
     /// <exception cref="ArgumentNullException">builder</exception>
     public static ModelBuilder HasPostgresEnum(
@@ -327,16 +444,16 @@ public static class KdbndpModelBuilderExtensions
     }
 
     /// <summary>
-    /// Registers a user-defined enum type in the model.
+    ///     Registers a user-defined enum type in the model.
     /// </summary>
     /// <param name="modelBuilder">The model builder in which to create the enum type.</param>
     /// <param name="name">The name of the enum type to create.</param>
     /// <param name="labels">The enum label values.</param>
     /// <returns>
-    /// The updated <see cref="ModelBuilder"/>.
+    ///     The updated <see cref="ModelBuilder" />.
     /// </returns>
     /// <remarks>
-    /// See: https://www.KingbaseES.org/docs/current/static/datatype-enum.html
+    ///     See: https://www.KingbaseES.org/docs/current/static/datatype-enum.html
     /// </remarks>
     /// <exception cref="ArgumentNullException">builder</exception>
     public static ModelBuilder HasPostgresEnum(
@@ -346,20 +463,21 @@ public static class KdbndpModelBuilderExtensions
         => modelBuilder.HasPostgresEnum(null, name, labels);
 
     /// <summary>
-    /// Registers a user-defined enum type in the model.
+    ///     Registers a user-defined enum type in the model.
     /// </summary>
     /// <param name="modelBuilder">The model builder in which to create the enum type.</param>
     /// <param name="schema">The schema in which to create the enum type.</param>
     /// <param name="name">The name of the enum type to create.</param>
     /// <param name="nameTranslator">
-    /// The translator for name and label inference.
-    /// Defaults to <see cref="KdbndpSnakeCaseNameTranslator"/>.</param>
+    ///     The translator for name and label inference.
+    ///     Defaults to <see cref="KdbndpSnakeCaseNameTranslator" />.
+    /// </param>
     /// <typeparam name="TEnum"></typeparam>
     /// <returns>
-    /// The updated <see cref="ModelBuilder"/>.
+    ///     The updated <see cref="ModelBuilder" />.
     /// </returns>
     /// <remarks>
-    /// See: https://www.KingbaseES.org/docs/current/static/datatype-enum.html
+    ///     See: https://www.KingbaseES.org/docs/current/static/datatype-enum.html
     /// </remarks>
     /// <exception cref="ArgumentNullException">builder</exception>
     public static ModelBuilder HasPostgresEnum<TEnum>(
@@ -369,24 +487,24 @@ public static class KdbndpModelBuilderExtensions
         IKdbndpNameTranslator? nameTranslator = null)
         where TEnum : struct, Enum
     {
-        if (nameTranslator is null)
-        {
-            nameTranslator = KdbndpConnection.GlobalTypeMapper.DefaultNameTranslator;
-        }
+#pragma warning disable CS0618 // KdbndpConnection.GlobalTypeMapper is obsolete
+        nameTranslator ??= KdbndpConnection.GlobalTypeMapper.DefaultNameTranslator;
+#pragma warning restore CS0618
 
         return modelBuilder.HasPostgresEnum(
             schema,
-            name ?? GetTypePgName<TEnum>(nameTranslator),
-            GetMemberPgNames<TEnum>(nameTranslator));
+            name ?? GetTypeKbName<TEnum>(nameTranslator),
+            GetMemberKbNames<TEnum>(nameTranslator));
     }
 
     #endregion
 
     #region Templates
 
-    public static ModelBuilder UseDatabaseTemplate(
-        this ModelBuilder modelBuilder,
-        string templateDatabaseName)
+    /// <summary>
+    ///     Specifies the KingbaseES database to use as a template when creating a new database for this model.
+    /// </summary>
+    public static ModelBuilder UseDatabaseTemplate(this ModelBuilder modelBuilder, string templateDatabaseName)
     {
         Check.NotNull(modelBuilder, nameof(modelBuilder));
         Check.NotEmpty(templateDatabaseName, nameof(templateDatabaseName));
@@ -400,24 +518,24 @@ public static class KdbndpModelBuilderExtensions
     #region Ranges
 
     /// <summary>
-    /// Registers a user-defined range type in the model.
+    ///     Registers a user-defined range type in the model.
     /// </summary>
     /// <param name="modelBuilder">The model builder on which to create the range type.</param>
     /// <param name="schema">The schema in which to create the range type.</param>
     /// <param name="name">The name of the range type to be created.</param>
     /// <param name="subtype">The subtype (or element type) of the range</param>
     /// <param name="canonicalFunction">
-    /// An optional KingbaseES function which converts range values to a canonical form.
+    ///     An optional KingbaseES function which converts range values to a canonical form.
     /// </param>
     /// <param name="subtypeOpClass">Used to specify a non-default operator class.</param>
     /// <param name="collation">Used to specify a non-default collation in the range's order.</param>
     /// <param name="subtypeDiff">
-    /// An optional KingbaseES function taking two values of the subtype type as argument, and return a double
-    /// precision value representing the difference between the two given values.
+    ///     An optional KingbaseES function taking two values of the subtype type as argument, and return a double
+    ///     precision value representing the difference between the two given values.
     /// </param>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/rangetypes.html,
-    /// https://www.KingbaseES.org/docs/current/static/sql-createtype.html,
+    ///     See https://www.KingbaseES.org/docs/current/static/rangetypes.html,
+    ///     https://www.KingbaseES.org/docs/current/static/sql-createtype.html,
     /// </remarks>
     public static ModelBuilder HasPostgresRange(
         this ModelBuilder modelBuilder,
@@ -445,14 +563,14 @@ public static class KdbndpModelBuilderExtensions
     }
 
     /// <summary>
-    /// Registers a user-defined range type in the model.
+    ///     Registers a user-defined range type in the model.
     /// </summary>
     /// <param name="modelBuilder">The model builder on which to create the range type.</param>
     /// <param name="name">The name of the range type to be created.</param>
     /// <param name="subtype">The subtype (or element type) of the range</param>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/rangetypes.html,
-    /// https://www.KingbaseES.org/docs/current/static/sql-createtype.html,
+    ///     See https://www.KingbaseES.org/docs/current/static/rangetypes.html,
+    ///     https://www.KingbaseES.org/docs/current/static/sql-createtype.html,
     /// </remarks>
     public static ModelBuilder HasPostgresRange(
         this ModelBuilder modelBuilder,
@@ -464,6 +582,9 @@ public static class KdbndpModelBuilderExtensions
 
     #region Tablespaces
 
+    /// <summary>
+    ///     Specifies the KingbaseES tablespace in which to place the new database created for this model.
+    /// </summary>
     public static ModelBuilder UseTablespace(
         this ModelBuilder modelBuilder,
         string tablespace)
@@ -480,20 +601,21 @@ public static class KdbndpModelBuilderExtensions
     #region Collation management
 
     /// <summary>
-    /// Creates a new collation in the database.
+    ///     Creates a new collation in the database.
     /// </summary>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/sql-createcollation.html.
+    ///     See https://www.KingbaseES.org/docs/current/sql-createcollation.html.
     /// </remarks>
     /// <param name="modelBuilder">The model builder on which to create the collation.</param>
     /// <param name="name">The name of the collation to create.</param>
     /// <param name="locale">Sets LC_COLLATE and LC_CTYPE at once.</param>
     /// <param name="provider">
-    /// Specifies the provider to use for locale services associated with this collation.
-    /// The available choices depend on the operating system and build options.</param>
+    ///     Specifies the provider to use for locale services associated with this collation.
+    ///     The available choices depend on the operating system and build options.
+    /// </param>
     /// <param name="deterministic">
-    /// Specifies whether the collation should use deterministic comparisons.
-    /// Defaults to <c>true</c>.
+    ///     Specifies whether the collation should use deterministic comparisons.
+    ///     Defaults to <c>true</c>.
     /// </param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public static ModelBuilder HasCollation(
@@ -505,21 +627,22 @@ public static class KdbndpModelBuilderExtensions
         => modelBuilder.HasCollation(schema: null, name, locale, provider: provider, deterministic: deterministic);
 
     /// <summary>
-    /// Creates a new collation in the database.
+    ///     Creates a new collation in the database.
     /// </summary>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/sql-createcollation.html.
+    ///     See https://www.KingbaseES.org/docs/current/sql-createcollation.html.
     /// </remarks>
     /// <param name="modelBuilder">The model builder on which to create the collation.</param>
     /// <param name="schema">The schema in which to create the collation, or <c>null</c> for the default schema.</param>
     /// <param name="name">The name of the collation to create.</param>
     /// <param name="locale">Sets LC_COLLATE and LC_CTYPE at once.</param>
     /// <param name="provider">
-    /// Specifies the provider to use for locale services associated with this collation.
-    /// The available choices depend on the operating system and build options.</param>
+    ///     Specifies the provider to use for locale services associated with this collation.
+    ///     The available choices depend on the operating system and build options.
+    /// </param>
     /// <param name="deterministic">
-    /// Specifies whether the collation should use deterministic comparisons.
-    /// Defaults to <c>true</c>.
+    ///     Specifies whether the collation should use deterministic comparisons.
+    ///     Defaults to <c>true</c>.
     /// </param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public static ModelBuilder HasCollation(
@@ -545,10 +668,10 @@ public static class KdbndpModelBuilderExtensions
     }
 
     /// <summary>
-    /// Creates a new collation in the database.
+    ///     Creates a new collation in the database.
     /// </summary>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/sql-createcollation.html.
+    ///     See https://www.KingbaseES.org/docs/current/sql-createcollation.html.
     /// </remarks>
     /// <param name="modelBuilder">The model builder on which to create the collation.</param>
     /// <param name="schema">The schema in which to create the collation, or <c>null</c> for the default schema.</param>
@@ -556,11 +679,12 @@ public static class KdbndpModelBuilderExtensions
     /// <param name="lcCollate">Use the specified operating system locale for the LC_COLLATE locale category.</param>
     /// <param name="lcCtype">Use the specified operating system locale for the LC_CTYPE locale category.</param>
     /// <param name="provider">
-    /// Specifies the provider to use for locale services associated with this collation.
-    /// The available choices depend on the operating system and build options.</param>
+    ///     Specifies the provider to use for locale services associated with this collation.
+    ///     The available choices depend on the operating system and build options.
+    /// </param>
     /// <param name="deterministic">
-    /// Specifies whether the collation should use deterministic comparisons.
-    /// Defaults to <c>true</c>.
+    ///     Specifies whether the collation should use deterministic comparisons.
+    ///     Defaults to <c>true</c>.
     /// </param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public static ModelBuilder HasCollation(
@@ -592,23 +716,25 @@ public static class KdbndpModelBuilderExtensions
     #region Default column collation
 
     /// <summary>
-    /// Configures the default collation for all columns in the database. This causes EF Core to specify an explicit
-    /// collation when creating each column (unless overridden).
+    ///     Configures the default collation for all columns in the database. This causes EF Core to specify an explicit
+    ///     collation when creating each column (unless overridden).
     /// </summary>
     /// <remarks>
-    /// <p>
-    /// An alternative is to specify a database collation via <see cref="RelationalModelBuilderExtensions.UseCollation(Microsoft.EntityFrameworkCore.ModelBuilder,string)"/>,
-    /// which will specify the query on <c>CREATE DATABASE</c> instead of for each and every column. However,
-    /// KingbaseES support is limited for the collations that can be specific via this mechanism; ICU collations -
-    /// which include all case-insensitive collations - are currently unsupported.
-    /// </p>
-    /// <p>
-    /// For more information, see https://www.KingbaseES.org/docs/current/collation.html.
-    /// </p>
+    ///     <p>
+    ///         An alternative is to specify a database collation via
+    ///         <see cref="RelationalModelBuilderExtensions.UseCollation(Microsoft.EntityFrameworkCore.ModelBuilder,string)" />,
+    ///         which will specify the query on <c>CREATE DATABASE</c> instead of for each and every column. However,
+    ///         KingbaseES support is limited for the collations that can be specific via this mechanism; ICU collations -
+    ///         which include all case-insensitive collations - are currently unsupported.
+    ///     </p>
+    ///     <p>
+    ///         For more information, see https://www.KingbaseES.org/docs/current/collation.html.
+    ///     </p>
     /// </remarks>
     /// <param name="modelBuilder">The model builder.</param>
     /// <param name="collation">The collation.</param>
     /// <returns>A builder to further configure the property.</returns>
+    [Obsolete("Use EF Core's standard model bulk configuration API")]
     public static ModelBuilder UseDefaultColumnCollation(this ModelBuilder modelBuilder, string? collation)
     {
         Check.NotNull(modelBuilder, nameof(modelBuilder));
@@ -620,24 +746,26 @@ public static class KdbndpModelBuilderExtensions
     }
 
     /// <summary>
-    /// Configures the default collation for all columns in the database. This causes EF Core to specify an explicit
-    /// collation when creating each column (unless overridden).
+    ///     Configures the default collation for all columns in the database. This causes EF Core to specify an explicit
+    ///     collation when creating each column (unless overridden).
     /// </summary>
     /// <remarks>
-    /// <p>
-    /// An alternative is to specify a database collation via <see cref="RelationalModelBuilderExtensions.UseCollation(Microsoft.EntityFrameworkCore.ModelBuilder,string)"/>,
-    /// which will specify the query on <c>CREATE DATABASE</c> instead of for each and every column. However,
-    /// KingbaseES support is limited for the collations that can be specific via this mechanism; ICU collations -
-    /// which include all case-insensitive collations - are currently unsupported.
-    /// </p>
-    /// <p>
-    /// For more information, see https://www.KingbaseES.org/docs/current/collation.html.
-    /// </p>
+    ///     <p>
+    ///         An alternative is to specify a database collation via
+    ///         <see cref="RelationalModelBuilderExtensions.UseCollation(Microsoft.EntityFrameworkCore.ModelBuilder,string)" />,
+    ///         which will specify the query on <c>CREATE DATABASE</c> instead of for each and every column. However,
+    ///         KingbaseES support is limited for the collations that can be specific via this mechanism; ICU collations -
+    ///         which include all case-insensitive collations - are currently unsupported.
+    ///     </p>
+    ///     <p>
+    ///         For more information, see https://www.KingbaseES.org/docs/current/collation.html.
+    ///     </p>
     /// </remarks>
     /// <param name="modelBuilder">The model builder.</param>
     /// <param name="collation">The collation.</param>
     /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
     /// <returns>A builder to further configure the property.</returns>
+    [Obsolete("Use EF Core's standard model bulk configuration API")]
     public static IConventionModelBuilder? UseDefaultColumnCollation(
         this IConventionModelBuilder modelBuilder,
         string? collation,
@@ -653,12 +781,13 @@ public static class KdbndpModelBuilderExtensions
     }
 
     /// <summary>
-    /// Returns a value indicating whether the given value can be set as the default column collation.
+    ///     Returns a value indicating whether the given value can be set as the default column collation.
     /// </summary>
     /// <param name="modelBuilder">The model builder.</param>
     /// <param name="collation">The collation.</param>
     /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
     /// <returns><c>true</c> if the given value can be set as the collation.</returns>
+    [Obsolete("Use EF Core's standard model bulk configuration API")]
     public static bool CanSetDefaultColumnCollation(
         this IConventionModelBuilder modelBuilder,
         string? collation,
@@ -675,16 +804,16 @@ public static class KdbndpModelBuilderExtensions
     #region Helpers
 
     // See: https://github.com/Kdbndp/Kdbndp/blob/dev/src/Kdbndp/TypeMapping/TypeMapperBase.cs#L132-L138
-    private static string GetTypePgName<TEnum>(IKdbndpNameTranslator nameTranslator) where TEnum : struct, Enum
-        => typeof(TEnum).GetCustomAttribute<KbNameAttribute>()?.KbName ??
-            nameTranslator.TranslateTypeName(typeof(TEnum).Name);
+    private static string GetTypeKbName<TEnum>(IKdbndpNameTranslator nameTranslator)
+        where TEnum : struct, Enum
+        => typeof(TEnum).GetCustomAttribute<KbNameAttribute>()?.KbName ?? nameTranslator.TranslateTypeName(typeof(TEnum).Name);
 
     // See: https://github.com/Kdbndp/Kdbndp/blob/dev/src/Kdbndp/TypeHandlers/EnumHandler.cs#L118-L129
-    private static string[] GetMemberPgNames<TEnum>(IKdbndpNameTranslator nameTranslator) where TEnum : struct, Enum
+    private static string[] GetMemberKbNames<TEnum>(IKdbndpNameTranslator nameTranslator)
+        where TEnum : struct, Enum
         => typeof(TEnum)
             .GetFields(BindingFlags.Static | BindingFlags.Public)
-            .Select(x => x.GetCustomAttribute<KbNameAttribute>()?.KbName ??
-                nameTranslator.TranslateMemberName(x.Name))
+            .Select(x => x.GetCustomAttribute<KbNameAttribute>()?.KbName ?? nameTranslator.TranslateMemberName(x.Name))
             .ToArray();
 
     #endregion

@@ -1,6 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Internal;
 
@@ -11,8 +9,8 @@ internal static class IReadOnlyListExtensions
 
     private sealed class IReadOnlyListSlice<T> : IReadOnlyList<T>
     {
-        private IReadOnlyList<T> _underlying;
-        private int _start;
+        private readonly IReadOnlyList<T> _underlying;
+        private readonly int _start;
 
         internal IReadOnlyListSlice(IReadOnlyList<T> underlying, int start)
         {
@@ -20,12 +18,16 @@ internal static class IReadOnlyListExtensions
             _start = start;
         }
 
-        public IEnumerator<T> GetEnumerator() => _underlying.Skip(_start).GetEnumerator();
+        public IEnumerator<T> GetEnumerator()
+            => _underlying.Skip(_start).GetEnumerator();
 
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator()
+            => GetEnumerator();
 
-        public int Count => _underlying.Count - _start;
+        public int Count
+            => _underlying.Count - _start;
 
-        public T this[int index] => _underlying[_start + index];
+        public T this[int index]
+            => _underlying[_start + index];
     }
 }

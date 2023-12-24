@@ -1,10 +1,3 @@
-using System.Collections.Generic;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Utilities;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
@@ -12,13 +5,33 @@ using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpByteArrayMethodTranslator : IMethodCallTranslator
 {
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpByteArrayMethodTranslator(ISqlExpressionFactory sqlExpressionFactory)
-        => _sqlExpressionFactory = sqlExpressionFactory;
+    {
+        _sqlExpressionFactory = sqlExpressionFactory;
+    }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual SqlExpression? Translate(
         SqlExpression? instance,
         MethodInfo method,
@@ -55,10 +68,10 @@ public class KdbndpByteArrayMethodTranslator : IMethodCallTranslator
                         typeMapping);
 
                 return _sqlExpressionFactory.GreaterThan(
-                    PostgresFunctionExpression.CreateWithArgumentSeparators(
+                    PgFunctionExpression.CreateWithArgumentSeparators(
                         "position",
                         new[] { value, source },
-                        new[] { "IN" },   // POSITION(x IN y)
+                        new[] { "IN" }, // POSITION(x IN y)
                         nullable: true,
                         argumentsPropagateNullability: TrueArrays[2],
                         builtIn: true,

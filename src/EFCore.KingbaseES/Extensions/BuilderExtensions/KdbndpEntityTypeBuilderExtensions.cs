@@ -1,89 +1,46 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Utilities;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
-using KdbndpTypes;
+﻿using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore;
 
+/// <summary>
+///     Kdbndp-specific extension methods for <see cref="EntityTypeBuilder" />.
+/// </summary>
+/// <remarks>
+///     See <see href="https://aka.ms/efcore-docs-modeling">Modeling entity types and relationships</see>.
+/// </remarks>
 public static class KdbndpEntityTypeBuilderExtensions
 {
-    #region xmin
-
-    /// <summary>
-    /// Configures using the auto-updating system column <c>xmin</c> as the optimistic concurrency token.
-    /// </summary>
-    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
-    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-    /// <remarks>
-    ///     See <see href="https://www.Kdbndp.org/efcore/modeling/concurrency.html">Concurrency tokens</see>
-    ///     for more information on using optimistic concurrency in KingbaseES.
-    /// </remarks>
-    public static EntityTypeBuilder UseXminAsConcurrencyToken(
-        this EntityTypeBuilder entityTypeBuilder)
-    {
-        Check.NotNull(entityTypeBuilder, nameof(entityTypeBuilder));
-
-        entityTypeBuilder.Property<uint>("xmin")
-            .HasColumnType("xid")
-            .ValueGeneratedOnAddOrUpdate()
-            .IsConcurrencyToken();
-
-        return entityTypeBuilder;
-    }
-
-    /// <summary>
-    /// Configures using the auto-updating system column <c>xmin</c> as the optimistic concurrency token.
-    /// </summary>
-    /// <remarks>
-    /// See http://www.Kdbndp.org/efcore/miscellaneous.html#optimistic-concurrency-and-concurrency-tokens
-    /// </remarks>
-    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
-    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
-    public static EntityTypeBuilder<TEntity> UseXminAsConcurrencyToken<TEntity>(
-        this EntityTypeBuilder<TEntity> entityTypeBuilder)
-        where TEntity : class
-        => (EntityTypeBuilder<TEntity>)UseXminAsConcurrencyToken((EntityTypeBuilder)entityTypeBuilder);
-
-    #endregion xmin
-
     #region Generated tsvector column
 
     // Note: actual configuration for generated TsVector properties is on the property
 
     /// <summary>
-    /// Configures a property on this entity to be a full-text search tsvector column over other given properties.
+    ///     Configures a property on this entity to be a full-text search tsvector column over other given properties.
     /// </summary>
     /// <param name="entityTypeBuilder">The builder for the entity being configured.</param>
     /// <param name="tsVectorPropertyExpression">
-    /// A lambda expression representing the property to be configured as a tsvector column
-    /// (<c>blog => blog.Url</c>).
+    ///     A lambda expression representing the property to be configured as a tsvector column
+    ///     (<c>blog => blog.Url</c>).
     /// </param>
     /// <param name="config">
-    /// <para>
-    /// The text search configuration for this generated tsvector property, or <c>null</c> if this is not a
-    /// generated tsvector property.
-    /// </para>
-    /// <para>
-    /// See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
-    /// </para>
+    ///     <para>
+    ///         The text search configuration for this generated tsvector property, or <c>null</c> if this is not a
+    ///         generated tsvector property.
+    ///     </para>
+    ///     <para>
+    ///         See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
+    ///     </para>
     /// </param>
     /// <param name="includeExpression">
-    /// <para>
-    /// A lambda expression representing the property(s) to be included in the tsvector column
-    /// (<c>blog => blog.Url</c>).
-    /// </para>
-    /// <para>
-    /// If multiple properties are to be included then specify an anonymous type including the
-    /// properties (<c>post => new { post.Title, post.BlogId }</c>).
-    /// </para>
+    ///     <para>
+    ///         A lambda expression representing the property(s) to be included in the tsvector column
+    ///         (<c>blog => blog.Url</c>).
+    ///     </para>
+    ///     <para>
+    ///         If multiple properties are to be included then specify an anonymous type including the
+    ///         properties (<c>post => new { post.Title, post.BlogId }</c>).
+    ///     </para>
     /// </param>
     /// <returns>A builder to further configure the property.</returns>
     public static EntityTypeBuilder<TEntity> HasGeneratedTsVectorColumn<TEntity>(
@@ -110,10 +67,10 @@ public static class KdbndpEntityTypeBuilderExtensions
     #region Storage parameters
 
     /// <summary>
-    /// Sets a KingbaseES storage parameter on the table created for this entity.
+    ///     Sets a KingbaseES storage parameter on the table created for this entity.
     /// </summary>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
+    ///     See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
     /// </remarks>
     /// <param name="entityTypeBuilder"> The builder for the entity type being configured. </param>
     /// <param name="parameterName"> The name of the storage parameter. </param>
@@ -132,10 +89,10 @@ public static class KdbndpEntityTypeBuilderExtensions
     }
 
     /// <summary>
-    /// Sets a KingbaseES storage parameter on the table created for this entity.
+    ///     Sets a KingbaseES storage parameter on the table created for this entity.
     /// </summary>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
+    ///     See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
     /// </remarks>
     /// <param name="entityTypeBuilder"> The builder for the entity type being configured. </param>
     /// <param name="parameterName"> The name of the storage parameter. </param>
@@ -149,10 +106,10 @@ public static class KdbndpEntityTypeBuilderExtensions
         => (EntityTypeBuilder<TEntity>)HasStorageParameter((EntityTypeBuilder)entityTypeBuilder, parameterName, parameterValue);
 
     /// <summary>
-    /// Sets a KingbaseES storage parameter on the table created for this entity.
+    ///     Sets a KingbaseES storage parameter on the table created for this entity.
     /// </summary>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
+    ///     See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
     /// </remarks>
     /// <param name="entityTypeBuilder"> The builder for the entity type being configured. </param>
     /// <param name="parameterName"> The name of the storage parameter. </param>
@@ -176,10 +133,10 @@ public static class KdbndpEntityTypeBuilderExtensions
     }
 
     /// <summary>
-    /// Returns a value indicating whether the KingbaseES storage parameter on the table created for this entity.
+    ///     Returns a value indicating whether the KingbaseES storage parameter is set on the table created for this entity.
     /// </summary>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
+    ///     See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
     /// </remarks>
     /// <param name="entityTypeBuilder"> The builder for the entity type being configured. </param>
     /// <param name="parameterName"> The name of the storage parameter. </param>
@@ -189,11 +146,13 @@ public static class KdbndpEntityTypeBuilderExtensions
     public static bool CanSetStorageParameter(
         this IConventionEntityTypeBuilder entityTypeBuilder,
         string parameterName,
-        object? parameterValue, bool fromDataAnnotation = false)
+        object? parameterValue,
+        bool fromDataAnnotation = false)
     {
         Check.NotNull(entityTypeBuilder, nameof(entityTypeBuilder));
 
-        return entityTypeBuilder.CanSetAnnotation(KdbndpAnnotationNames.StorageParameterPrefix + parameterName, parameterValue, fromDataAnnotation);
+        return entityTypeBuilder.CanSetAnnotation(
+            KdbndpAnnotationNames.StorageParameterPrefix + parameterName, parameterValue, fromDataAnnotation);
     }
 
     #endregion Storage parameters
@@ -201,15 +160,15 @@ public static class KdbndpEntityTypeBuilderExtensions
     #region Unlogged Table
 
     /// <summary>
-    /// Configures the entity to use an unlogged table when targeting Kdbndp.
+    ///     Configures the entity to use an unlogged table when targeting Kdbndp.
     /// </summary>
     /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
     /// <param name="unlogged">True to configure the entity to use an unlogged table; otherwise, false.</param>
     /// <returns>
-    /// The same builder instance so that multiple calls can be chained.
+    ///     The same builder instance so that multiple calls can be chained.
     /// </returns>
     /// <remarks>
-    /// See: https://www.KingbaseES.org/docs/current/sql-createtable.html#SQL-CREATETABLE-UNLOGGED
+    ///     See: https://www.KingbaseES.org/docs/current/sql-createtable.html#SQL-CREATETABLE-UNLOGGED
     /// </remarks>
     public static EntityTypeBuilder IsUnlogged(
         this EntityTypeBuilder entityTypeBuilder,
@@ -223,15 +182,15 @@ public static class KdbndpEntityTypeBuilderExtensions
     }
 
     /// <summary>
-    /// Configures the mapped table to use an unlogged table when targeting Kdbndp.
+    ///     Configures the mapped table to use an unlogged table when targeting Kdbndp.
     /// </summary>
     /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
     /// <param name="unlogged">True to configure the entity to use an unlogged table; otherwise, false.</param>
     /// <returns>
-    /// The same builder instance so that multiple calls can be chained.
+    ///     The same builder instance so that multiple calls can be chained.
     /// </returns>
     /// <remarks>
-    /// See: https://www.KingbaseES.org/docs/current/sql-createtable.html#SQL-CREATETABLE-UNLOGGED
+    ///     See: https://www.KingbaseES.org/docs/current/sql-createtable.html#SQL-CREATETABLE-UNLOGGED
     /// </remarks>
     public static EntityTypeBuilder<TEntity> IsUnlogged<TEntity>(
         this EntityTypeBuilder<TEntity> entityTypeBuilder,
@@ -240,16 +199,16 @@ public static class KdbndpEntityTypeBuilderExtensions
         => (EntityTypeBuilder<TEntity>)IsUnlogged((EntityTypeBuilder)entityTypeBuilder, unlogged);
 
     /// <summary>
-    /// Configures the mapped table to use an unlogged table when targeting Kdbndp.
+    ///     Configures the mapped table to use an unlogged table when targeting Kdbndp.
     /// </summary>
     /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
     /// <param name="unlogged">True to configure the entity to use an unlogged table; otherwise, false.</param>
     /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
     /// <returns>
-    /// The same builder instance so that multiple calls can be chained.
+    ///     The same builder instance so that multiple calls can be chained.
     /// </returns>
     /// <remarks>
-    /// See: https://www.KingbaseES.org/docs/current/sql-createtable.html#SQL-CREATETABLE-UNLOGGED
+    ///     See: https://www.KingbaseES.org/docs/current/sql-createtable.html#SQL-CREATETABLE-UNLOGGED
     /// </remarks>
     public static IConventionEntityTypeBuilder? IsUnlogged(
         this IConventionEntityTypeBuilder entityTypeBuilder,
@@ -267,16 +226,16 @@ public static class KdbndpEntityTypeBuilderExtensions
     }
 
     /// <summary>
-    /// Returns a value indicating whether the mapped table can be configured to use an unlogged table when targeting Kdbndp.
+    ///     Returns a value indicating whether the mapped table can be configured to use an unlogged table when targeting Kdbndp.
     /// </summary>
     /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
     /// <param name="unlogged">True to configure the entity to use an unlogged table; otherwise, false.</param>
     /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
     /// <returns>
-    /// The same builder instance so that multiple calls can be chained.
+    ///     The same builder instance so that multiple calls can be chained.
     /// </returns>
     /// <remarks>
-    /// See: https://www.KingbaseES.org/docs/current/sql-createtable.html#SQL-CREATETABLE-UNLOGGED
+    ///     See: https://www.KingbaseES.org/docs/current/sql-createtable.html#SQL-CREATETABLE-UNLOGGED
     /// </remarks>
     public static bool CanSetIsUnlogged(
         this IConventionEntityTypeBuilder entityTypeBuilder,
@@ -292,6 +251,9 @@ public static class KdbndpEntityTypeBuilderExtensions
 
     #region CockroachDB Interleave-in-parent
 
+    /// <summary>
+    ///     Specifies that the CockroachDB-specific "interleave in parent" feature should be used.
+    /// </summary>
     public static EntityTypeBuilder UseCockroachDbInterleaveInParent(
         this EntityTypeBuilder entityTypeBuilder,
         Type parentTableType,
@@ -307,7 +269,7 @@ public static class KdbndpEntityTypeBuilderExtensions
             throw new ArgumentException($"Entity not found in model for type: {parentEntity}", nameof(parentTableType));
         }
 
-        if (StoreObjectIdentifier.Create(parentEntity, StoreObjectType.Table) is not StoreObjectIdentifier tableIdentifier)
+        if (StoreObjectIdentifier.Create(parentEntity, StoreObjectType.Table) is not { } tableIdentifier)
         {
             throw new ArgumentException($"Entity {parentEntity.DisplayName()} is not mapped to a database table");
         }
@@ -320,89 +282,57 @@ public static class KdbndpEntityTypeBuilderExtensions
         return entityTypeBuilder;
     }
 
+    /// <summary>
+    ///     Specifies that the CockroachDB-specific "interleave in parent" feature should be used.
+    /// </summary>
     public static EntityTypeBuilder<TEntity> UseCockroachDbInterleaveInParent<TEntity>(
         this EntityTypeBuilder<TEntity> entityTypeBuilder,
         Type parentTableType,
         List<string> interleavePrefix)
         where TEntity : class
-        => (EntityTypeBuilder<TEntity>)UseCockroachDbInterleaveInParent((EntityTypeBuilder)entityTypeBuilder, parentTableType, interleavePrefix);
+        => (EntityTypeBuilder<TEntity>)UseCockroachDbInterleaveInParent(
+            (EntityTypeBuilder)entityTypeBuilder, parentTableType, interleavePrefix);
 
     #endregion CockroachDB Interleave-in-parent
 
     #region Obsolete
 
     /// <summary>
-    /// Sets a KingbaseES storage parameter on the table created for this entity.
+    ///     Configures using the auto-updating system column <c>xmin</c> as the optimistic concurrency token.
     /// </summary>
+    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
+    ///     See <see href="https://www.Kdbndp.org/efcore/modeling/concurrency.html">Concurrency tokens</see>
+    ///     for more information on using optimistic concurrency in KingbaseES.
     /// </remarks>
-    /// <param name="entityTypeBuilder"> The builder for the entity type being configured. </param>
-    /// <param name="parameterName"> The name of the storage parameter. </param>
-    /// <param name="parameterValue"> The value of the storage parameter. </param>
-    /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-    [Obsolete("Use HasStorageParameter")]
-    public static EntityTypeBuilder SetStorageParameter(
-        this EntityTypeBuilder entityTypeBuilder,
-        string parameterName,
-        object? parameterValue)
-        => HasStorageParameter(entityTypeBuilder, parameterName, parameterValue);
+    [Obsolete("Use EF Core's standard IsRowVersion() or [Timestamp], see https://learn.microsoft.com/ef/core/saving/concurrency")]
+    public static EntityTypeBuilder UseXminAsConcurrencyToken(
+        this EntityTypeBuilder entityTypeBuilder)
+    {
+        Check.NotNull(entityTypeBuilder, nameof(entityTypeBuilder));
+
+        entityTypeBuilder.Property<uint>("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
+
+        return entityTypeBuilder;
+    }
 
     /// <summary>
-    /// Sets a KingbaseES storage parameter on the table created for this entity.
+    ///     Configures using the auto-updating system column <c>xmin</c> as the optimistic concurrency token.
     /// </summary>
     /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
+    ///     See http://www.Kdbndp.org/efcore/miscellaneous.html#optimistic-concurrency-and-concurrency-tokens
     /// </remarks>
-    /// <param name="entityTypeBuilder"> The builder for the entity type being configured. </param>
-    /// <param name="parameterName"> The name of the storage parameter. </param>
-    /// <param name="parameterValue"> The value of the storage parameter. </param>
-    /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-    [Obsolete("Use HasStorageParameter")]
-    public static EntityTypeBuilder<TEntity> SetStorageParameter<TEntity>(
-        this EntityTypeBuilder<TEntity> entityTypeBuilder,
-        string parameterName,
-        object? parameterValue)
+    /// <param name="entityTypeBuilder">The builder for the entity type being configured.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    [Obsolete("Use EF Core's standard IsRowVersion() or [Timestamp], see https://learn.microsoft.com/ef/core/saving/concurrency")]
+    public static EntityTypeBuilder<TEntity> UseXminAsConcurrencyToken<TEntity>(
+        this EntityTypeBuilder<TEntity> entityTypeBuilder)
         where TEntity : class
-        => HasStorageParameter(entityTypeBuilder, parameterName, parameterValue);
-
-    /// <summary>
-    /// Sets a KingbaseES storage parameter on the table created for this entity.
-    /// </summary>
-    /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
-    /// </remarks>
-    /// <param name="entityTypeBuilder"> The builder for the entity type being configured. </param>
-    /// <param name="parameterName"> The name of the storage parameter. </param>
-    /// <param name="parameterValue"> The value of the storage parameter. </param>
-    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
-    /// <returns> The same builder instance so that multiple calls can be chained. </returns>
-    [Obsolete("Use HasStorageParameter")]
-    public static IConventionEntityTypeBuilder? SetStorageParameter(
-        this IConventionEntityTypeBuilder entityTypeBuilder,
-        string parameterName,
-        object? parameterValue,
-        bool fromDataAnnotation = false)
-        => HasStorageParameter(entityTypeBuilder, parameterName, parameterValue, fromDataAnnotation);
-
-    /// <summary>
-    /// Returns a value indicating whether the KingbaseES storage parameter on the table created for this entity.
-    /// </summary>
-    /// <remarks>
-    /// See https://www.KingbaseES.org/docs/current/static/sql-createtable.html#SQL-CREATETABLE-STORAGE-PARAMETERS
-    /// </remarks>
-    /// <param name="entityTypeBuilder"> The builder for the entity type being configured. </param>
-    /// <param name="parameterName"> The name of the storage parameter. </param>
-    /// <param name="parameterValue"> The value of the storage parameter. </param>
-    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
-    /// <returns><c>true</c> if the mapped table can be configured as with the storage parameter.</returns>
-    [Obsolete("Use CanSetStorageParameter")]
-    public static bool CanSetSetStorageParameter(
-        this IConventionEntityTypeBuilder entityTypeBuilder,
-        string parameterName,
-        object? parameterValue,
-        bool fromDataAnnotation = false)
-        => CanSetStorageParameter(entityTypeBuilder, parameterName, parameterValue, fromDataAnnotation);
+        => (EntityTypeBuilder<TEntity>)UseXminAsConcurrencyToken((EntityTypeBuilder)entityTypeBuilder);
 
     #endregion Obsolete
 }

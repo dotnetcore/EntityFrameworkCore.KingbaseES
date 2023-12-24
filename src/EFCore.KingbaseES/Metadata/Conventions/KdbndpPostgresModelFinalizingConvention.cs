@@ -1,0 +1,77 @@
+namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Conventions;
+
+/// <summary>
+///     A convention that discovers certain common KingbaseES extensions based on store types used in the model (e.g. hstore).
+/// </summary>
+/// <remarks>
+///     See <see href="https://aka.ms/efcore-docs-conventions">Model building conventions</see>.
+/// </remarks>
+public class KdbndpPostgresModelFinalizingConvention : IModelFinalizingConvention
+{
+    private readonly IRelationalTypeMappingSource _typeMappingSource;
+
+    /// <summary>
+    ///     Creates a new instance of <see cref="KdbndpPostgresModelFinalizingConvention" />.
+    /// </summary>
+    /// <param name="typeMappingSource">The type mapping source to use.</param>
+    public KdbndpPostgresModelFinalizingConvention(IRelationalTypeMappingSource typeMappingSource)
+    {
+        _typeMappingSource = typeMappingSource;
+    }
+
+    /// <inheritdoc />
+    public virtual void ProcessModelFinalizing(IConventionModelBuilder modelBuilder, IConventionContext<IConventionModelBuilder> context)
+    {
+        foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetDeclaredProperties())
+            {
+                var typeMapping = (RelationalTypeMapping?)property.FindTypeMapping()
+                    ?? _typeMappingSource.FindMapping((IProperty)property);
+
+                if (typeMapping is not null)
+                {
+                    DiscoverPostgresExtensions(property, typeMapping, modelBuilder);
+                    ProcessRowVersionProperty(property, typeMapping);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    ///     Discovers certain common KingbaseES extensions based on property store types (e.g. hstore).
+    /// </summary>
+    protected virtual void DiscoverPostgresExtensions(
+        IConventionProperty property,
+        RelationalTypeMapping typeMapping,
+        IConventionModelBuilder modelBuilder)
+    {
+        switch (typeMapping.StoreType)
+        {
+            case "hstore":
+                modelBuilder.HasPostgresExtension("hstore");
+                break;
+            case "citext":
+                modelBuilder.HasPostgresExtension("citext");
+                break;
+            case "ltree":
+            case "lquery":
+            case "ltxtquery":
+                modelBuilder.HasPostgresExtension("ltree");
+                break;
+        }
+    }
+
+    /// <summary>
+    ///     Detects properties which are uint, OnAddOrUpdate and configured as concurrency tokens, and maps these to the KingbaseES
+    ///     internal "xmin" column, which changes every time the row is modified.
+    /// </summary>
+    protected virtual void ProcessRowVersionProperty(IConventionProperty property, RelationalTypeMapping typeMapping)
+    {
+        if (property is { ValueGenerated: ValueGenerated.OnAddOrUpdate, IsConcurrencyToken: true }
+            && typeMapping.StoreType == "xid")
+        {
+            property.Builder.HasColumnName("xmin");
+        }
+    }
+}

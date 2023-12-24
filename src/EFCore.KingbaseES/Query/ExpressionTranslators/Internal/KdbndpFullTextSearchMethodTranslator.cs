@@ -1,22 +1,10 @@
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions.Internal;
-using KdbndpTypes;
 using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
 /// <summary>
-/// Provides translations for KingbaseES full-text search methods.
+///     Provides translations for KingbaseES full-text search methods.
 /// </summary>
 public class KdbndpFullTextSearchMethodTranslator : IMethodCallTranslator
 {
@@ -34,6 +22,12 @@ public class KdbndpFullTextSearchMethodTranslator : IMethodCallTranslator
     private readonly RelationalTypeMapping _regconfigMapping;
     private readonly RelationalTypeMapping _regdictionaryMapping;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpFullTextSearchMethodTranslator(
         IRelationalTypeMappingSource typeMappingSource,
         KdbndpSqlExpressionFactory sqlExpressionFactory,
@@ -65,21 +59,34 @@ public class KdbndpFullTextSearchMethodTranslator : IMethodCallTranslator
             return method.Name switch
             {
                 // Methods accepting a configuration (regconfig)
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ToTsVector)         when arguments.Count == 3 => ConfigAccepting("to_tsvector"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.PlainToTsQuery)     when arguments.Count == 3 => ConfigAccepting("plainto_tsquery"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.PhraseToTsQuery)    when arguments.Count == 3 => ConfigAccepting("phraseto_tsquery"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ToTsQuery)          when arguments.Count == 3 => ConfigAccepting("to_tsquery"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.WebSearchToTsQuery) when arguments.Count == 3 => ConfigAccepting("websearch_to_tsquery"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.Unaccent)           when arguments.Count == 3 => DictionaryAccepting("unaccent"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ToTsVector) when arguments.Count == 3
+                    => ConfigAccepting("to_tsvector"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.PlainToTsQuery) when arguments.Count == 3
+                    => ConfigAccepting("plainto_tsquery"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.PhraseToTsQuery) when arguments.Count == 3
+                    => ConfigAccepting("phraseto_tsquery"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ToTsQuery) when arguments.Count == 3
+                    => ConfigAccepting("to_tsquery"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.WebSearchToTsQuery) when arguments.Count == 3
+                    => ConfigAccepting("websearch_to_tsquery"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.Unaccent) when arguments.Count == 3
+                    => DictionaryAccepting("unaccent"),
 
                 // Methods not accepting a configuration
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ArrayToTsVector)    => NonConfigAccepting("array_to_tsvector"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ToTsVector)         => NonConfigAccepting("to_tsvector"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.PlainToTsQuery)     => NonConfigAccepting("plainto_tsquery"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.PhraseToTsQuery)    => NonConfigAccepting("phraseto_tsquery"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ToTsQuery)          => NonConfigAccepting("to_tsquery"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.WebSearchToTsQuery) => NonConfigAccepting("websearch_to_tsquery"),
-                nameof(KdbndpFullTextSearchDbFunctionsExtensions.Unaccent)           => NonConfigAccepting("unaccent"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ArrayToTsVector)
+                    => NonConfigAccepting("array_to_tsvector"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ToTsVector)
+                    => NonConfigAccepting("to_tsvector"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.PlainToTsQuery)
+                    => NonConfigAccepting("plainto_tsquery"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.PhraseToTsQuery)
+                    => NonConfigAccepting("phraseto_tsquery"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.ToTsQuery)
+                    => NonConfigAccepting("to_tsquery"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.WebSearchToTsQuery)
+                    => NonConfigAccepting("websearch_to_tsquery"),
+                nameof(KdbndpFullTextSearchDbFunctionsExtensions.Unaccent)
+                    => NonConfigAccepting("unaccent"),
 
                 _ => null
             };
@@ -150,12 +157,13 @@ public class KdbndpFullTextSearchMethodTranslator : IMethodCallTranslator
                 // Operators
 
                 nameof(KdbndpFullTextSearchLinqExtensions.And)
-                    => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.TextSearchAnd, arguments[0], arguments[1]),
+                    => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.TextSearchAnd, arguments[0], arguments[1]),
                 nameof(KdbndpFullTextSearchLinqExtensions.Or)
-                    => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.TextSearchOr, arguments[0], arguments[1]),
+                    => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.TextSearchOr, arguments[0], arguments[1]),
 
                 nameof(KdbndpFullTextSearchLinqExtensions.ToNegative)
-                    => new SqlUnaryExpression(ExpressionType.Not, arguments[0], arguments[0].Type,
+                    => new SqlUnaryExpression(
+                        ExpressionType.Not, arguments[0], arguments[0].Type,
                         arguments[0].TypeMapping),
 
                 nameof(KdbndpFullTextSearchLinqExtensions.Contains)
@@ -168,7 +176,7 @@ public class KdbndpFullTextSearchMethodTranslator : IMethodCallTranslator
 
                 nameof(KdbndpFullTextSearchLinqExtensions.Matches)
                     => _sqlExpressionFactory.MakePostgresBinary(
-                        PostgresExpressionType.TextSearchMatch,
+                        PgExpressionType.TextSearchMatch,
                         arguments[0],
                         arguments[1].Type == typeof(string)
                             ? _sqlExpressionFactory.Function(
@@ -235,7 +243,16 @@ public class KdbndpFullTextSearchMethodTranslator : IMethodCallTranslator
                         argumentsPropagateNullability: TrueArrays[4],
                         method.ReturnType),
 
-                nameof(KdbndpFullTextSearchLinqExtensions.Rewrite)
+                nameof(KdbndpFullTextSearchLinqExtensions.Rewrite) when arguments.Count == 2
+                    => _sqlExpressionFactory.Function(
+                        "ts_rewrite",
+                        arguments,
+                        nullable: true,
+                        argumentsPropagateNullability: TrueArrays[2],
+                        typeof(KdbndpTsQuery),
+                        _tsQueryMapping),
+
+                nameof(KdbndpFullTextSearchLinqExtensions.Rewrite) when arguments.Count == 3
                     => _sqlExpressionFactory.Function(
                         "ts_rewrite",
                         arguments,
@@ -292,7 +309,8 @@ public class KdbndpFullTextSearchMethodTranslator : IMethodCallTranslator
         return null;
 
         SqlExpression ConfigAccepting(string functionName)
-            => _sqlExpressionFactory.Function(functionName, new[]
+            => _sqlExpressionFactory.Function(
+                functionName, new[]
                 {
                     // For the regconfig parameter, if a constant string was provided, just pass it as a string - regconfig-accepting functions
                     // will implicitly cast to regconfig. For (string!) parameters, we add an explicit cast, since regconfig actually is an OID
@@ -308,7 +326,8 @@ public class KdbndpFullTextSearchMethodTranslator : IMethodCallTranslator
                 _typeMappingSource.FindMapping(method.ReturnType, _model));
 
         SqlExpression DictionaryAccepting(string functionName)
-            => _sqlExpressionFactory.Function(functionName, new[]
+            => _sqlExpressionFactory.Function(
+                functionName, new[]
                 {
                     // For the regdictionary parameter, if a constant string was provided, just pass it as a string - regdictionary-accepting functions
                     // will implicitly cast to regdictionary. For (string!) parameters, we add an explicit cast, since regdictionary actually is an OID

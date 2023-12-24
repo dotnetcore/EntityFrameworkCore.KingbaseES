@@ -1,49 +1,84 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Utilities;
+﻿using System.Text;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class CockroachDbInterleaveInParent
 {
     private const string AnnotationName = CockroachDbAnnotationNames.InterleaveInParent;
 
     private readonly IReadOnlyAnnotatable _annotatable;
 
-    public virtual Annotatable Annotatable => (Annotatable)_annotatable;
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual Annotatable Annotatable
+        => (Annotatable)_annotatable;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public CockroachDbInterleaveInParent(IReadOnlyAnnotatable annotatable)
-        => _annotatable = annotatable;
+    {
+        _annotatable = annotatable;
+    }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual string? ParentTableSchema
     {
         get => GetData().ParentTableSchema;
         set
         {
-            (var _, var parentTableName, var interleavePrefix) = GetData();
+            var (_, parentTableName, interleavePrefix) = GetData();
             SetData(value, parentTableName, interleavePrefix);
         }
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual string ParentTableName
     {
         get => GetData().ParentTableName;
         set
         {
-            (var parentTableSchema, var _, var interleavePrefix) = GetData();
+            var (parentTableSchema, _, interleavePrefix) = GetData();
             SetData(parentTableSchema, value, interleavePrefix);
         }
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual List<string> InterleavePrefix
     {
         get => GetData().InterleavePrefix;
         set
         {
-            (var parentTableSchema, var parentTableName, var _) = GetData();
+            var (parentTableSchema, parentTableName, _) = GetData();
             SetData(parentTableSchema, parentTableName, value);
         }
     }
@@ -78,6 +113,7 @@ public class CockroachDbInterleaveInParent
                 }
             }
         }
+
         return builder.ToString();
     }
 

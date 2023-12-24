@@ -1,12 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Utilities;
+using System.Runtime.CompilerServices;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions.Internal;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.Internal;
@@ -17,7 +11,7 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
     /// <summary>
-    /// Creates a new instance of the <see cref="KdbndpSqlNullabilityProcessor" /> class.
+    ///     Creates a new instance of the <see cref="KdbndpSqlNullabilityProcessor" /> class.
     /// </summary>
     /// <param name="dependencies">Parameter object containing dependencies for this class.</param>
     /// <param name="useRelationalNulls">A bool value indicating whether relational null semantics are in use.</param>
@@ -25,44 +19,188 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
         RelationalParameterBasedSqlProcessorDependencies dependencies,
         bool useRelationalNulls)
         : base(dependencies, useRelationalNulls)
-        => _sqlExpressionFactory = dependencies.SqlExpressionFactory;
+    {
+        _sqlExpressionFactory = dependencies.SqlExpressionFactory;
+    }
+
+    /// <inheritdoc />
+    protected override SqlExpression VisitSqlBinary(
+        SqlBinaryExpression sqlBinaryExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
+    {
+        if (sqlBinaryExpression is not
+            {
+                OperatorType: ExpressionType.Equal or ExpressionType.NotEqual,
+                Left: PgRowValueExpression leftRowValue,
+                Right: PgRowValueExpression rightRowValue
+            })
+        {
+            return base.VisitSqlBinary(sqlBinaryExpression, allowOptimizedExpansion, out nullable);
+        }
+
+        // Equality checks between row values require some special null semantics compensation.
+        // Row value equality/inequality works the same as regular equals/non-equals; this means that it's fine as long as we're comparing
+        // non-nullable values (no need to compensate), but for nullable values, we need to compensate. We go over the value pairs, and
+        // extract out pairs that require compensation to an expanded, non-value-tuple expression (regular equality null semantics).
+        // Note that KingbaseES does have DISTINCT FROM/NOT DISTINCT FROM which would have been perfect here, but those still don't use
+        // indexes.
+        // Note that we don't do compensation for comparisons (e.g. greater than) since these are expressed via EF.Functions, which
+        // correspond directly to SQL constructs.
+        // The PG docs around this are in https://www.KingbaseES.org/docs/current/functions-comparisons.html#ROW-WISE-COMPARISON
+
+        Check.DebugAssert(leftRowValue.Values.Count == rightRowValue.Values.Count, "left.Values.Count == right.Values.Count");
+        var count = leftRowValue.Values.Count;
+
+        var operatorType = sqlBinaryExpression.OperatorType;
+
+        SqlExpression? expandedExpression = null;
+        List<SqlExpression>? visitedLeftValues = null;
+        List<SqlExpression>? visitedRightValues = null;
+
+        for (var i = 0; i < count; i++)
+        {
+            // Visit the left value, populating visitedLeftValues only if we haven't yet switched to an expanded expression, and only if
+            // the visitation actually changed something, and
+            var leftValue = leftRowValue.Values[i];
+            var rightValue = rightRowValue.Values[i];
+            var visitedRightValue = Visit(rightRowValue.Values[i], out var rightNullable);
+            var visitedLeftValue = Visit(leftRowValue.Values[i], out var leftNullable);
+
+            if (!leftNullable && !rightNullable
+                || allowOptimizedExpansion && (!leftNullable || !rightNullable))
+            {
+                // The comparison for this value pair doesn't require expansion and can remain in the row value (so continue below).
+                // But if the visitation above changed a value, construct a list to hold the visited values.
+                if (visitedLeftValue != leftValue && visitedLeftValues is null)
+                {
+                    visitedLeftValues = SliceToList(leftRowValue.Values, count, i);
+                }
+
+                if (visitedLeftValues is not null)
+                {
+                    visitedLeftValues.Add(visitedLeftValue);
+                }
+
+                if (visitedRightValue != rightValue && visitedRightValues is null)
+                {
+                    visitedRightValues = SliceToList(rightRowValue.Values, count, i);
+                }
+
+                if (visitedRightValues is not null)
+                {
+                    visitedRightValues.Add(visitedRightValue);
+                }
+
+                continue;
+            }
+
+            // If we're here, the value pair requires null semantics compensation. We build a binary expression around the pair and visit
+            // that (that adds the compensation). We then chain all such expressions together with AND.
+            var valueBinaryExpression = Visit(
+                _sqlExpressionFactory.MakeBinary(operatorType, visitedLeftValue, visitedRightValue, null)!, allowOptimizedExpansion, out _);
+
+            if (expandedExpression is null)
+            {
+                // visitedLeft/RightValues will contain all pairs that can remain in the row value (since they don't require compensation)
+                visitedLeftValues = SliceToList(leftRowValue.Values, count, i);
+                visitedRightValues = SliceToList(rightRowValue.Values, count, i);
+
+                expandedExpression = valueBinaryExpression;
+            }
+            else
+            {
+                expandedExpression = _sqlExpressionFactory.AndAlso(expandedExpression, valueBinaryExpression);
+            }
+        }
+
+        nullable = false;
+
+        if (expandedExpression is null)
+        {
+            // No pairs required compensation, so they all stay in the row value.
+            // Either return the original binary expression (if no value visitation changed anything), or construct a new one over the
+            // visited values.
+            return visitedLeftValues is null && visitedRightValues is null
+                ? sqlBinaryExpression
+                : _sqlExpressionFactory.MakeBinary(
+                    operatorType,
+                    visitedLeftValues is null
+                        ? leftRowValue
+                        : new PgRowValueExpression(visitedLeftValues, leftRowValue.Type, leftRowValue.TypeMapping),
+                    visitedRightValues is null
+                        ? rightRowValue
+                        : new PgRowValueExpression(visitedRightValues, leftRowValue.Type, leftRowValue.TypeMapping),
+                    null)!;
+        }
+
+        Check.DebugAssert(visitedLeftValues is not null, "visitedLeftValues is not null");
+        Check.DebugAssert(visitedRightValues is not null, "visitedRightValues is not null");
+
+        // Some pairs required compensation. Combine the pairs which didn't (in visitedLeft/RightValues) with expandedExpression
+        // (which contains the logic for those that did).
+        return visitedLeftValues.Count switch
+        {
+            0 => expandedExpression,
+            1 => _sqlExpressionFactory.AndAlso(
+                _sqlExpressionFactory.MakeBinary(operatorType, visitedLeftValues[0], visitedRightValues[0], null)!,
+                expandedExpression),
+            // Technically the CLR type and type mappings are incorrect, as we're truncating the row values.
+            // But that shouldn't matter.
+            _ => _sqlExpressionFactory.AndAlso(
+                _sqlExpressionFactory.MakeBinary(
+                    sqlBinaryExpression.OperatorType,
+                    new PgRowValueExpression(visitedLeftValues, leftRowValue.Type, leftRowValue.TypeMapping),
+                    new PgRowValueExpression(visitedRightValues, rightRowValue.Type, rightRowValue.TypeMapping),
+                    null)!,
+                expandedExpression)
+        };
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static List<SqlExpression> SliceToList(IReadOnlyList<SqlExpression> source, int capacity, int count)
+        {
+            var list = new List<SqlExpression>(capacity);
+
+            for (var i = 0; i < count; i++)
+            {
+                list.Add(source[i]);
+            }
+
+            return list;
+        }
+    }
 
     /// <inheritdoc />
     protected override SqlExpression VisitCustomSqlExpression(
-        SqlExpression sqlExpression, bool allowOptimizedExpansion, out bool nullable)
+        SqlExpression sqlExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
         => sqlExpression switch
         {
-            PostgresAnyExpression postgresAnyExpression
-                => VisitAny(postgresAnyExpression, allowOptimizedExpansion, out nullable),
-            PostgresAllExpression postgresAllExpression
-                => VisitAll(postgresAllExpression, allowOptimizedExpansion, out nullable),
-            PostgresArrayIndexExpression arrayIndexExpression
-                => VisitArrayIndex(arrayIndexExpression, allowOptimizedExpansion, out nullable),
-            PostgresBinaryExpression binaryExpression
-                => VisitBinary(binaryExpression, allowOptimizedExpansion, out nullable),
-            PostgresILikeExpression ilikeExpression
-                => VisitILike(ilikeExpression, allowOptimizedExpansion, out nullable),
-            PostgresNewArrayExpression newArrayExpression
-                => VisitNewArray(newArrayExpression, allowOptimizedExpansion, out nullable),
-            PostgresRegexMatchExpression regexMatchExpression
-                => VisitRegexMatch(regexMatchExpression, allowOptimizedExpansion, out nullable),
-            PostgresJsonTraversalExpression postgresJsonTraversalExpression
-                => VisitJsonTraversal(postgresJsonTraversalExpression, allowOptimizedExpansion, out nullable),
-            PostgresUnknownBinaryExpression postgresUnknownBinaryExpression
-                => VisitUnknownBinary(postgresUnknownBinaryExpression, allowOptimizedExpansion, out nullable),
+            PgAnyExpression e => VisitAny(e, allowOptimizedExpansion, out nullable),
+            PgAllExpression e => VisitAll(e, allowOptimizedExpansion, out nullable),
+            PgArrayIndexExpression e => VisitArrayIndex(e, allowOptimizedExpansion, out nullable),
+            PgArraySliceExpression e => VisitArraySlice(e, allowOptimizedExpansion, out nullable),
+            PgBinaryExpression e => VisitPostgresBinary(e, allowOptimizedExpansion, out nullable),
+            PgILikeExpression e => VisitILike(e, allowOptimizedExpansion, out nullable),
+            PgJsonTraversalExpression e => VisitJsonTraversal(e, allowOptimizedExpansion, out nullable),
+            PgNewArrayExpression e => VisitNewArray(e, allowOptimizedExpansion, out nullable),
+            PgRegexMatchExpression e => VisitRegexMatch(e, allowOptimizedExpansion, out nullable),
+            PgRowValueExpression e => VisitRowValueExpression(e, allowOptimizedExpansion, out nullable),
+            PgUnknownBinaryExpression e => VisitUnknownBinary(e, allowOptimizedExpansion, out nullable),
+
+            // PostgresFunctionExpression is visited via the SqlFunctionExpression override below
 
             _ => base.VisitCustomSqlExpression(sqlExpression, allowOptimizedExpansion, out nullable)
         };
 
     /// <summary>
-    /// Visits a <see cref="PostgresAnyExpression" /> and computes its nullability.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    /// <param name="anyExpression">A <see cref="PostgresAnyExpression" /> expression to visit.</param>
-    /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
-    /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
-    /// <returns>An optimized sql expression.</returns>
-    protected virtual SqlExpression VisitAny(
-        PostgresAnyExpression anyExpression, bool allowOptimizedExpansion, out bool nullable)
+    protected virtual SqlExpression VisitAny(PgAnyExpression anyExpression, bool allowOptimizedExpansion, out bool nullable)
     {
         Check.NotNull(anyExpression, nameof(anyExpression));
 
@@ -79,7 +217,7 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
 
         // We only do null compensation for item = ANY(array), not for any other operator.
         // Note that LIKE (without ANY) doesn't get null-compensated either, so we're consistent with that.
-        if (anyExpression.OperatorType != PostgresAnyOperatorType.Equal)
+        if (anyExpression.OperatorType != PgAnyOperatorType.Equal)
         {
             // If the array is a constant and it contains a null, or if the array isn't a constant,
             // we assume the entire expression can be null.
@@ -130,14 +268,12 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
     }
 
     /// <summary>
-    /// Visits a <see cref="PostgresAnyExpression" /> and computes its nullability.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    /// <param name="allExpression">A <see cref="PostgresAnyExpression" /> expression to visit.</param>
-    /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
-    /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
-    /// <returns>An optimized sql expression.</returns>
-    protected virtual SqlExpression VisitAll(
-        PostgresAllExpression allExpression, bool allowOptimizedExpansion, out bool nullable)
+    protected virtual SqlExpression VisitAll(PgAllExpression allExpression, bool allowOptimizedExpansion, out bool nullable)
     {
         Check.NotNull(allExpression, nameof(allExpression));
 
@@ -159,38 +295,58 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
     }
 
     /// <summary>
-    /// Visits an <see cref="PostgresArrayIndexExpression" /> and computes its nullability.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    /// <remarks>
-    /// </remarks>
-    /// <param name="arrayIndexExpression">A <see cref="PostgresArrayIndexExpression" /> expression to visit.</param>
-    /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
-    /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
-    /// <returns>An optimized sql expression.</returns>
     protected virtual SqlExpression VisitArrayIndex(
-        PostgresArrayIndexExpression arrayIndexExpression, bool allowOptimizedExpansion, out bool nullable)
+        PgArrayIndexExpression arrayIndexExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
     {
         Check.NotNull(arrayIndexExpression, nameof(arrayIndexExpression));
 
         var array = Visit(arrayIndexExpression.Array, allowOptimizedExpansion, out var arrayNullable);
         var index = Visit(arrayIndexExpression.Index, allowOptimizedExpansion, out var indexNullable);
 
-        nullable = arrayNullable || indexNullable || ((KdbndpArrayTypeMapping)arrayIndexExpression.Array.TypeMapping!).IsElementNullable;
+        nullable = arrayNullable || indexNullable || arrayIndexExpression.IsNullable;
 
         return arrayIndexExpression.Update(array, index);
     }
 
     /// <summary>
-    /// Visits a <see cref="PostgresBinaryExpression" /> and computes its nullability.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    /// <remarks>
-    /// </remarks>
-    /// <param name="binaryExpression">A <see cref="PostgresBinaryExpression" /> expression to visit.</param>
-    /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
-    /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
-    /// <returns>An optimized sql expression.</returns>
-    protected virtual SqlExpression VisitBinary(
-        PostgresBinaryExpression binaryExpression, bool allowOptimizedExpansion, out bool nullable)
+    protected virtual SqlExpression VisitArraySlice(
+        PgArraySliceExpression arraySliceExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
+    {
+        Check.NotNull(arraySliceExpression, nameof(arraySliceExpression));
+
+        var array = Visit(arraySliceExpression.Array, allowOptimizedExpansion, out var arrayNullable);
+        var lowerBound = Visit(arraySliceExpression.LowerBound, allowOptimizedExpansion, out var lowerBoundNullable);
+        var upperBound = Visit(arraySliceExpression.UpperBound, allowOptimizedExpansion, out var upperBoundNullable);
+
+        nullable = arrayNullable || lowerBoundNullable || upperBoundNullable || arraySliceExpression.IsNullable;
+
+        return arraySliceExpression.Update(array, lowerBound, upperBound);
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected virtual SqlExpression VisitPostgresBinary(
+        PgBinaryExpression binaryExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
     {
         Check.NotNull(binaryExpression, nameof(binaryExpression));
 
@@ -204,25 +360,102 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
         nullable = binaryExpression.OperatorType switch
         {
             // The following LTree search methods return null for "not found"
-            PostgresExpressionType.LTreeFirstAncestor   => true,
-            PostgresExpressionType.LTreeFirstDescendent => true,
-            PostgresExpressionType.LTreeFirstMatches    => true,
+            PgExpressionType.LTreeFirstAncestor => true,
+            PgExpressionType.LTreeFirstDescendent => true,
+            PgExpressionType.LTreeFirstMatches => true,
 
-            _                                           => leftNullable || rightNullable
+            _ => leftNullable || rightNullable
         };
 
         return binaryExpression.Update(left, right);
     }
 
     /// <summary>
-    /// Visits a <see cref="PostgresILikeExpression" /> and computes its nullability.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    /// <param name="iLikeExpression">A <see cref="PostgresILikeExpression" /> expression to visit.</param>
-    /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
-    /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
-    /// <returns>An optimized sql expression.</returns>
-    protected virtual SqlExpression VisitILike(
-        PostgresILikeExpression iLikeExpression, bool allowOptimizedExpansion, out bool nullable)
+    protected override SqlExpression VisitSqlFunction(
+        SqlFunctionExpression sqlFunctionExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
+    {
+        // PostgresFunctionExpression extends SqlFunctionExpression, and adds aggregate predicate and ordering expressions to that.
+        // First call the base VisitSqlFunction to visit the arguments
+        var visitedBase = base.VisitSqlFunction(sqlFunctionExpression, allowOptimizedExpansion, out nullable);
+
+        // base.VisitSqlFunction has some special logic for SUM which wraps it in a COALESCE
+        // (see https://github.com/dotnet/efcore/issues/28158), so we need some special handling to properly visit the
+        // PostgresFunctionExpression it wraps.
+        if (sqlFunctionExpression.IsBuiltIn
+            && string.Equals(sqlFunctionExpression.Name, "SUM", StringComparison.OrdinalIgnoreCase)
+            && visitedBase is SqlFunctionExpression { Name: "COALESCE", Arguments: { } } coalesceExpression
+            && coalesceExpression.Arguments[0] is PgFunctionExpression wrappedFunctionExpression)
+        {
+            // The base logic assumes sum is operating over numbers, which breaks sum over PG interval.
+            // Detect that case and remove the coalesce entirely (note that we don't need coalescing since sum function is in
+            // EF.Functions.Sum, and returns nullable. This is a temporary hack until #38158 is fixed.
+            if (sqlFunctionExpression.Type == typeof(TimeSpan)
+                || sqlFunctionExpression.Type.FullName is "NodaTime.Period" or "NodaTime.Duration")
+            {
+                return coalesceExpression.Arguments[0];
+            }
+
+            var visitedArguments = coalesceExpression.Arguments!.ToArray();
+            visitedArguments[0] = VisitPostgresFunctionComponents(wrappedFunctionExpression);
+
+            return coalesceExpression.Update(coalesceExpression.Instance, visitedArguments);
+        }
+
+        return visitedBase is PgFunctionExpression pgFunctionExpression
+            ? VisitPostgresFunctionComponents(pgFunctionExpression)
+            : visitedBase;
+
+        PgFunctionExpression VisitPostgresFunctionComponents(PgFunctionExpression pgFunctionExpression)
+        {
+            var aggregateChanged = false;
+
+            var visitedAggregatePredicate = Visit(pgFunctionExpression.AggregatePredicate, allowOptimizedExpansion: true, out _);
+            aggregateChanged |= visitedAggregatePredicate != pgFunctionExpression.AggregatePredicate;
+
+            OrderingExpression[]? visitedOrderings = null;
+            for (var i = 0; i < pgFunctionExpression.AggregateOrderings.Count; i++)
+            {
+                var ordering = pgFunctionExpression.AggregateOrderings[i];
+                var visitedOrdering = ordering.Update(Visit(ordering.Expression, out _));
+                if (visitedOrdering != ordering && visitedOrderings is null)
+                {
+                    visitedOrderings = new OrderingExpression[pgFunctionExpression.AggregateOrderings.Count];
+                    for (var j = 0; j < i; j++)
+                    {
+                        visitedOrderings[j] = pgFunctionExpression.AggregateOrderings[j];
+                    }
+
+                    aggregateChanged = true;
+                }
+
+                if (visitedOrderings is not null)
+                {
+                    visitedOrderings[i] = visitedOrdering;
+                }
+            }
+
+            return aggregateChanged
+                ? pgFunctionExpression.UpdateAggregateComponents(
+                    visitedAggregatePredicate,
+                    visitedOrderings ?? pgFunctionExpression.AggregateOrderings)
+                : pgFunctionExpression;
+        }
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected virtual SqlExpression VisitILike(PgILikeExpression iLikeExpression, bool allowOptimizedExpansion, out bool nullable)
     {
         Check.NotNull(iLikeExpression, nameof(iLikeExpression));
 
@@ -242,16 +475,15 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
     }
 
     /// <summary>
-    /// Visits a <see cref="PostgresNewArrayExpression" /> and computes its nullability.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    /// <remarks>
-    /// </remarks>
-    /// <param name="newArrayExpression">A <see cref="PostgresNewArrayExpression" /> expression to visit.</param>
-    /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
-    /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
-    /// <returns>An optimized sql expression.</returns>
     protected virtual SqlExpression VisitNewArray(
-        PostgresNewArrayExpression newArrayExpression, bool allowOptimizedExpansion, out bool nullable)
+        PgNewArrayExpression newArrayExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
     {
         Check.NotNull(newArrayExpression, nameof(newArrayExpression));
 
@@ -278,20 +510,19 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
         nullable = false;
         return newInitializers is null
             ? newArrayExpression
-            : new PostgresNewArrayExpression(newInitializers, newArrayExpression.Type, newArrayExpression.TypeMapping);
+            : new PgNewArrayExpression(newInitializers, newArrayExpression.Type, newArrayExpression.TypeMapping);
     }
 
     /// <summary>
-    /// Visits a <see cref="PostgresRegexMatchExpression" /> and computes its nullability.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    /// <remarks>
-    /// </remarks>
-    /// <param name="regexMatchExpression">A <see cref="PostgresRegexMatchExpression" /> expression to visit.</param>
-    /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
-    /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
-    /// <returns>An optimized sql expression.</returns>
     protected virtual SqlExpression VisitRegexMatch(
-        PostgresRegexMatchExpression regexMatchExpression, bool allowOptimizedExpansion, out bool nullable)
+        PgRegexMatchExpression regexMatchExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
     {
         Check.NotNull(regexMatchExpression, nameof(regexMatchExpression));
 
@@ -304,16 +535,15 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
     }
 
     /// <summary>
-    /// Visits a <see cref="PostgresJsonTraversalExpression" /> and computes its nullability.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    /// <remarks>
-    /// </remarks>
-    /// <param name="jsonTraversalExpression">A <see cref="PostgresJsonTraversalExpression" /> expression to visit.</param>
-    /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
-    /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
-    /// <returns>An optimized sql expression.</returns>
     protected virtual SqlExpression VisitJsonTraversal(
-        PostgresJsonTraversalExpression jsonTraversalExpression, bool allowOptimizedExpansion, out bool nullable)
+        PgJsonTraversalExpression jsonTraversalExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
     {
         Check.NotNull(jsonTraversalExpression, nameof(jsonTraversalExpression));
 
@@ -323,7 +553,7 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
         for (var i = 0; i < jsonTraversalExpression.Path.Count; i++)
         {
             var pathComponent = jsonTraversalExpression.Path[i];
-            var newPathComponent = Visit(pathComponent, allowOptimizedExpansion, out var nullablePathComponent);
+            var newPathComponent = Visit(pathComponent, allowOptimizedExpansion, out _);
             if (newPathComponent != pathComponent && newPath is null)
             {
                 newPath = new SqlExpression[jsonTraversalExpression.Path.Count];
@@ -343,24 +573,62 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
         // See #1851 for optimizing this for JSON POCO mapping.
         nullable = true;
 
-        return jsonTraversalExpression.Update(
-            expression,
-            newPath is null
-                ? jsonTraversalExpression.Path
-                : newPath.ToArray());
+        return jsonTraversalExpression.Update(expression, newPath?.ToArray() ?? jsonTraversalExpression.Path);
     }
 
     /// <summary>
-    /// Visits a <see cref="PostgresUnknownBinaryExpression" /> and computes its nullability.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected virtual SqlExpression VisitRowValueExpression(
+        PgRowValueExpression rowValueExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
+    {
+        SqlExpression[]? newValues = null;
+
+        for (var i = 0; i < rowValueExpression.Values.Count; i++)
+        {
+            var value = rowValueExpression.Values[i];
+
+            // Note that we disallow optimized expansion, since the null vs. false distinction does matter inside the row's values
+            var newValue = Visit(value, allowOptimizedExpansion: false, out _);
+            if (newValue != value && newValues is null)
+            {
+                newValues = new SqlExpression[rowValueExpression.Values.Count];
+                for (var j = 0; j < i; j++)
+                {
+                    newValues[j] = rowValueExpression.Values[j];
+                }
+            }
+
+            if (newValues is not null)
+            {
+                newValues[i] = newValue;
+            }
+        }
+
+        // The row value expression itself can never be null
+        nullable = false;
+
+        return rowValueExpression.Update(newValues ?? rowValueExpression.Values);
+    }
+
+    /// <summary>
+    ///     Visits a <see cref="PgUnknownBinaryExpression" /> and computes its nullability.
     /// </summary>
     /// <remarks>
     /// </remarks>
-    /// <param name="unknownBinaryExpression">A <see cref="PostgresUnknownBinaryExpression" /> expression to visit.</param>
+    /// <param name="unknownBinaryExpression">A <see cref="PgUnknownBinaryExpression" /> expression to visit.</param>
     /// <param name="allowOptimizedExpansion">A bool value indicating if optimized expansion which considers null value as false value is allowed.</param>
     /// <param name="nullable">A bool value indicating whether the sql expression is nullable.</param>
     /// <returns>An optimized sql expression.</returns>
     protected virtual SqlExpression VisitUnknownBinary(
-        PostgresUnknownBinaryExpression unknownBinaryExpression, bool allowOptimizedExpansion, out bool nullable)
+        PgUnknownBinaryExpression unknownBinaryExpression,
+        bool allowOptimizedExpansion,
+        out bool nullable)
     {
         Check.NotNull(unknownBinaryExpression, nameof(unknownBinaryExpression));
 
@@ -374,8 +642,7 @@ public class KdbndpSqlNullabilityProcessor : SqlNullabilityProcessor
 
     private static bool MayContainNulls(SqlExpression arrayExpression)
     {
-        if (arrayExpression is SqlConstantExpression constantArrayExpression &&
-            constantArrayExpression.Value is Array constantArray)
+        if (arrayExpression is SqlConstantExpression { Value: Array constantArray })
         {
             for (var i = 0; i < constantArray.Length; i++)
             {

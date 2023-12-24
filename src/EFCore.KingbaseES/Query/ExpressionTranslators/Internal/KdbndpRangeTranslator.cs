@@ -1,22 +1,16 @@
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Infrastructure.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
-using KdbndpTypes;
 using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
+using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpRangeTranslator : IMethodCallTranslator, IMemberTranslator
 {
     private readonly IRelationalTypeMappingSource _typeMappingSource;
@@ -28,17 +22,22 @@ public class KdbndpRangeTranslator : IMethodCallTranslator, IMemberTranslator
         typeof(Enumerable).GetTypeInfo().GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly)
             .Single(mi => mi.Name == nameof(Enumerable.Any) && mi.GetParameters().Length == 1);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpRangeTranslator(
         IRelationalTypeMappingSource typeMappingSource,
         KdbndpSqlExpressionFactory KdbndpSqlExpressionFactory,
         IModel model,
-        IKdbndpSingletonOptions KdbndpSingletonOptions)
+        bool supportsMultiranges)
     {
         _typeMappingSource = typeMappingSource;
         _sqlExpressionFactory = KdbndpSqlExpressionFactory;
         _model = model;
-        _supportsMultiranges = KdbndpSingletonOptions.PostgresVersionWithoutDefault is null
-            || KdbndpSingletonOptions.PostgresVersionWithoutDefault.AtLeast(14);
+        _supportsMultiranges = supportsMultiranges;
     }
 
     /// <inheritdoc />
@@ -51,8 +50,7 @@ public class KdbndpRangeTranslator : IMethodCallTranslator, IMemberTranslator
         // Any() over multirange -> NOT isempty(). KdbndpRange<T> has IsEmpty which is translated below.
         if (_supportsMultiranges
             && method.IsGenericMethod
-            && method.GetGenericMethodDefinition() == EnumerableAnyWithoutPredicate
-            && arguments[0].Type.TryGetMultirangeSubtype(out _))
+            && method.GetGenericMethodDefinition() == EnumerableAnyWithoutPredicate)
         {
             return _sqlExpressionFactory.Not(
                 _sqlExpressionFactory.Function(
@@ -77,7 +75,8 @@ public class KdbndpRangeTranslator : IMethodCallTranslator, IMemberTranslator
 
                 return _sqlExpressionFactory.Function(
                     "range_merge",
-                    new[] {
+                    new[]
+                    {
                         _sqlExpressionFactory.ApplyTypeMapping(arguments[0], inferredMapping),
                         _sqlExpressionFactory.ApplyTypeMapping(arguments[1], inferredMapping)
                     },
@@ -89,17 +88,7 @@ public class KdbndpRangeTranslator : IMethodCallTranslator, IMemberTranslator
 
             if (method.DeclaringType == typeof(KdbndpMultirangeDbFunctionsExtensions))
             {
-                var returnTypeMapping = arguments[0].TypeMapping is KdbndpMultirangeTypeMapping multirangeTypeMapping
-                    ? multirangeTypeMapping.RangeMapping
-                    : null;
-
-                return _sqlExpressionFactory.Function(
-                    "range_merge",
-                    new[] { arguments[0] },
-                    nullable: true,
-                    argumentsPropagateNullability: TrueArrays[1],
-                    method.ReturnType,
-                    returnTypeMapping);
+                return null;
             }
         }
 
@@ -112,21 +101,21 @@ public class KdbndpRangeTranslator : IMethodCallTranslator, IMemberTranslator
             nameof(KdbndpRangeDbFunctionsExtensions.Overlaps)
                 => _sqlExpressionFactory.Overlaps(arguments[0], arguments[1]),
             nameof(KdbndpRangeDbFunctionsExtensions.IsStrictlyLeftOf)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.RangeIsStrictlyLeftOf, arguments[0], arguments[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.RangeIsStrictlyLeftOf, arguments[0], arguments[1]),
             nameof(KdbndpRangeDbFunctionsExtensions.IsStrictlyRightOf)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.RangeIsStrictlyRightOf, arguments[0], arguments[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.RangeIsStrictlyRightOf, arguments[0], arguments[1]),
             nameof(KdbndpRangeDbFunctionsExtensions.DoesNotExtendRightOf)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.RangeDoesNotExtendRightOf, arguments[0], arguments[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.RangeDoesNotExtendRightOf, arguments[0], arguments[1]),
             nameof(KdbndpRangeDbFunctionsExtensions.DoesNotExtendLeftOf)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.RangeDoesNotExtendLeftOf, arguments[0], arguments[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.RangeDoesNotExtendLeftOf, arguments[0], arguments[1]),
             nameof(KdbndpRangeDbFunctionsExtensions.IsAdjacentTo)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.RangeIsAdjacentTo, arguments[0], arguments[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.RangeIsAdjacentTo, arguments[0], arguments[1]),
             nameof(KdbndpRangeDbFunctionsExtensions.Union)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.RangeUnion, arguments[0], arguments[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.RangeUnion, arguments[0], arguments[1]),
             nameof(KdbndpRangeDbFunctionsExtensions.Intersect)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.RangeIntersect, arguments[0], arguments[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.RangeIntersect, arguments[0], arguments[1]),
             nameof(KdbndpRangeDbFunctionsExtensions.Except)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.RangeExcept, arguments[0], arguments[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.RangeExcept, arguments[0], arguments[1]),
 
             _ => null
         };
@@ -145,28 +134,18 @@ public class KdbndpRangeTranslator : IMethodCallTranslator, IMemberTranslator
             return null;
         }
 
-        if (member.Name == nameof(KdbndpRange<int>.LowerBound) || member.Name == nameof(KdbndpRange<int>.UpperBound))
+        if (member.Name is nameof(KdbndpRange<int>.LowerBound) or nameof(KdbndpRange<int>.UpperBound))
         {
-            var typeMapping = instance!.TypeMapping is KdbndpRangeTypeMapping rangeMapping
-                ? rangeMapping.SubtypeMapping
-                : _typeMappingSource.FindMapping(returnType, _model);
-
-            return _sqlExpressionFactory.Function(
-                member.Name == nameof(KdbndpRange<int>.LowerBound) ? "lower" : "upper",
-                new[] { instance },
-                nullable: true,
-                argumentsPropagateNullability: TrueArrays[1],
-                returnType,
-                typeMapping);
+            return null;
         }
 
         return member.Name switch
         {
-            nameof(KdbndpRange<int>.IsEmpty)               => SingleArgBoolFunction("isempty", instance!),
+            nameof(KdbndpRange<int>.IsEmpty) => SingleArgBoolFunction("isempty", instance!),
             nameof(KdbndpRange<int>.LowerBoundIsInclusive) => SingleArgBoolFunction("lower_inc", instance!),
             nameof(KdbndpRange<int>.UpperBoundIsInclusive) => SingleArgBoolFunction("upper_inc", instance!),
-            nameof(KdbndpRange<int>.LowerBoundInfinite)    => SingleArgBoolFunction("lower_inf", instance!),
-            nameof(KdbndpRange<int>.UpperBoundInfinite)    => SingleArgBoolFunction("upper_inf", instance!),
+            nameof(KdbndpRange<int>.LowerBoundInfinite) => SingleArgBoolFunction("lower_inf", instance!),
+            nameof(KdbndpRange<int>.UpperBoundInfinite) => SingleArgBoolFunction("upper_inf", instance!),
 
             _ => null
         };
@@ -179,9 +158,4 @@ public class KdbndpRangeTranslator : IMethodCallTranslator, IMemberTranslator
                 argumentsPropagateNullability: TrueArrays[1],
                 typeof(bool));
     }
-
-    private static readonly ConcurrentDictionary<Type, object> _defaults = new();
-
-    private static object? GetDefaultValue(Type type)
-        => type.IsValueType ? _defaults.GetOrAdd(type, Activator.CreateInstance!) : null;
 }

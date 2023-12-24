@@ -1,16 +1,26 @@
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Utilities;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore;
 
+/// <summary>
+///     Model extension methods for Kdbndp-specific metadata.
+/// </summary>
+/// <remarks>
+///     See <see href="https://aka.ms/efcore-docs-modeling">Modeling entity types and relationships</see>.
+/// </remarks>
 public static class KdbndpModelExtensions
 {
+    /// <summary>
+    ///     The default name for the hi-lo sequence.
+    /// </summary>
     public const string DefaultHiLoSequenceName = "EntityFrameworkHiLoSequence";
+
+    /// <summary>
+    ///     The default prefix for sequences applied to properties.
+    /// </summary>
+    public const string DefaultSequenceNameSuffix = "Sequence";
 
     #region HiLo
 
@@ -42,7 +52,9 @@ public static class KdbndpModelExtensions
     /// <param name="name"> The value to set. </param>
     /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
     public static string? SetHiLoSequenceName(
-        this IConventionModel model, string? name, bool fromDataAnnotation = false)
+        this IConventionModel model,
+        string? name,
+        bool fromDataAnnotation = false)
     {
         Check.NullButNotEmpty(name, nameof(name));
 
@@ -87,7 +99,9 @@ public static class KdbndpModelExtensions
     /// <param name="value"> The value to set. </param>
     /// <param name="fromDataAnnotation"> Indicates whether the configuration was specified using a data annotation. </param>
     public static string? SetHiLoSequenceSchema(
-        this IConventionModel model, string? value, bool fromDataAnnotation = false)
+        this IConventionModel model,
+        string? value,
+        bool fromDataAnnotation = false)
     {
         Check.NullButNotEmpty(value, nameof(value));
 
@@ -105,6 +119,106 @@ public static class KdbndpModelExtensions
         => model.FindAnnotation(KdbndpAnnotationNames.HiLoSequenceSchema)?.GetConfigurationSource();
 
     #endregion
+
+    #region Sequence
+
+    /// <summary>
+    ///     Returns the suffix to append to the name of automatically created sequences.
+    /// </summary>
+    /// <param name="model">The model.</param>
+    /// <returns>The name to use for the default key value generation sequence.</returns>
+    public static string GetSequenceNameSuffix(this IReadOnlyModel model)
+        => (string?)model[KdbndpAnnotationNames.SequenceNameSuffix]
+            ?? DefaultSequenceNameSuffix;
+
+    /// <summary>
+    ///     Sets the suffix to append to the name of automatically created sequences.
+    /// </summary>
+    /// <param name="model">The model.</param>
+    /// <param name="name">The value to set.</param>
+    public static void SetSequenceNameSuffix(this IMutableModel model, string? name)
+    {
+        Check.NullButNotEmpty(name, nameof(name));
+
+        model.SetOrRemoveAnnotation(KdbndpAnnotationNames.SequenceNameSuffix, name);
+    }
+
+    /// <summary>
+    ///     Sets the suffix to append to the name of automatically created sequences.
+    /// </summary>
+    /// <param name="model">The model.</param>
+    /// <param name="name">The value to set.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns>The configured value.</returns>
+    public static string? SetSequenceNameSuffix(
+        this IConventionModel model,
+        string? name,
+        bool fromDataAnnotation = false)
+    {
+        Check.NullButNotEmpty(name, nameof(name));
+
+        model.SetOrRemoveAnnotation(KdbndpAnnotationNames.SequenceNameSuffix, name, fromDataAnnotation);
+
+        return name;
+    }
+
+    /// <summary>
+    ///     Returns the <see cref="ConfigurationSource" /> for the default value generation sequence name suffix.
+    /// </summary>
+    /// <param name="model">The model.</param>
+    /// <returns>The <see cref="ConfigurationSource" /> for the default key value generation sequence name.</returns>
+    public static ConfigurationSource? GetSequenceNameSuffixConfigurationSource(this IConventionModel model)
+        => model.FindAnnotation(KdbndpAnnotationNames.SequenceNameSuffix)?.GetConfigurationSource();
+
+    /// <summary>
+    ///     Returns the schema to use for the default value generation sequence.
+    ///     <see cref="KdbndpPropertyBuilderExtensions.UseSequence" />
+    /// </summary>
+    /// <param name="model">The model.</param>
+    /// <returns>The schema to use for the default key value generation sequence.</returns>
+    public static string? GetSequenceSchema(this IReadOnlyModel model)
+        => (string?)model[KdbndpAnnotationNames.SequenceSchema];
+
+    /// <summary>
+    ///     Sets the schema to use for the default key value generation sequence.
+    /// </summary>
+    /// <param name="model">The model.</param>
+    /// <param name="value">The value to set.</param>
+    public static void SetSequenceSchema(this IMutableModel model, string? value)
+    {
+        Check.NullButNotEmpty(value, nameof(value));
+
+        model.SetOrRemoveAnnotation(KdbndpAnnotationNames.SequenceSchema, value);
+    }
+
+    /// <summary>
+    ///     Sets the schema to use for the default key value generation sequence.
+    /// </summary>
+    /// <param name="model">The model.</param>
+    /// <param name="value">The value to set.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns>The configured value.</returns>
+    public static string? SetSequenceSchema(
+        this IConventionModel model,
+        string? value,
+        bool fromDataAnnotation = false)
+    {
+        Check.NullButNotEmpty(value, nameof(value));
+
+        model.SetOrRemoveAnnotation(KdbndpAnnotationNames.SequenceSchema, value, fromDataAnnotation);
+
+        return value;
+    }
+
+    /// <summary>
+    ///     Returns the <see cref="ConfigurationSource" /> for the default key value generation sequence schema.
+    /// </summary>
+    /// <param name="model">The model.</param>
+    /// <returns>The <see cref="ConfigurationSource" /> for the default key value generation sequence schema.</returns>
+    public static ConfigurationSource? GetSequenceSchemaConfigurationSource(this IConventionModel model)
+        => model.FindAnnotation(KdbndpAnnotationNames.SequenceSchema)?.GetConfigurationSource();
+
+    #endregion Sequence
 
     #region Value Generation Strategy
 
@@ -155,6 +269,12 @@ public static class KdbndpModelExtensions
 
     #region KingbaseES Extensions
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static PostgresExtension GetOrAddPostgresExtension(
         this IMutableModel model,
         string? schema,
@@ -162,13 +282,38 @@ public static class KdbndpModelExtensions
         string? version)
         => PostgresExtension.GetOrAddPostgresExtension(model, schema, name, version);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static IReadOnlyList<PostgresExtension> GetPostgresExtensions(this IReadOnlyModel model)
         => PostgresExtension.GetPostgresExtensions(model).ToArray();
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public static PostgresExtension GetOrAddPostgresExtension(
+        this IConventionModel model,
+        string? schema,
+        string name,
+        string? version)
+        => PostgresExtension.GetOrAddPostgresExtension(model, schema, name, version);
 
     #endregion
 
     #region Enum types
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static PostgresEnum GetOrAddPostgresEnum(
         this IMutableModel model,
         string? schema,
@@ -176,6 +321,12 @@ public static class KdbndpModelExtensions
         string[] labels)
         => PostgresEnum.GetOrAddPostgresEnum(model, schema, name, labels);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static IReadOnlyList<PostgresEnum> GetPostgresEnums(this IReadOnlyModel model)
         => PostgresEnum.GetPostgresEnums(model).ToArray();
 
@@ -183,6 +334,12 @@ public static class KdbndpModelExtensions
 
     #region Range types
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static PostgresRange GetOrAddPostgresRange(
         this IMutableModel model,
         string? schema,
@@ -202,6 +359,12 @@ public static class KdbndpModelExtensions
             collation,
             subtypeDiff);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static IReadOnlyList<PostgresRange> PostgresRanges(this IReadOnlyModel model)
         => PostgresRange.GetPostgresRanges(model).ToArray();
 
@@ -209,12 +372,30 @@ public static class KdbndpModelExtensions
 
     #region Database Template
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static string? GetDatabaseTemplate(this IReadOnlyModel model)
         => (string?)model[KdbndpAnnotationNames.DatabaseTemplate];
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static void SetDatabaseTemplate(this IMutableModel model, string? template)
         => model.SetOrRemoveAnnotation(KdbndpAnnotationNames.DatabaseTemplate, template);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static string? SetDatabaseTemplate(
         this IConventionModel model,
         string? template,
@@ -227,6 +408,12 @@ public static class KdbndpModelExtensions
         return template;
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static ConfigurationSource? GetDatabaseTemplateConfigurationSource(this IConventionModel model)
         => model.FindAnnotation(KdbndpAnnotationNames.DatabaseTemplate)?.GetConfigurationSource();
 
@@ -234,12 +421,30 @@ public static class KdbndpModelExtensions
 
     #region Tablespace
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static string? GetTablespace(this IReadOnlyModel model)
         => (string?)model[KdbndpAnnotationNames.Tablespace];
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static void SetTablespace(this IMutableModel model, string? tablespace)
         => model.SetOrRemoveAnnotation(KdbndpAnnotationNames.Tablespace, tablespace);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static string? SetTablespace(
         this IConventionModel model,
         string? tablespace,
@@ -252,6 +457,12 @@ public static class KdbndpModelExtensions
         return tablespace;
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static ConfigurationSource? GetTablespaceConfigurationSource(this IConventionModel model)
         => model.FindAnnotation(KdbndpAnnotationNames.Tablespace)?.GetConfigurationSource();
 
@@ -259,6 +470,12 @@ public static class KdbndpModelExtensions
 
     #region Collation management
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static PostgresCollation GetOrAddCollation(
         this IMutableModel model,
         string? schema,
@@ -276,6 +493,12 @@ public static class KdbndpModelExtensions
             provider,
             deterministic);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static IReadOnlyList<PostgresCollation> GetCollations(this IReadOnlyModel model)
         => PostgresCollation.GetCollations(model).ToArray();
 
@@ -284,53 +507,56 @@ public static class KdbndpModelExtensions
     #region Default column collation
 
     /// <summary>
-    /// Gets the default collation for all columns in the database, or <see langword="null" /> if none is defined.
-    /// This causes EF Core to specify an explicit collation when creating all column, unless one is overridden
-    /// on a column.
+    ///     Gets the default collation for all columns in the database, or <see langword="null" /> if none is defined.
+    ///     This causes EF Core to specify an explicit collation when creating all column, unless one is overridden
+    ///     on a column.
     /// </summary>
     /// <remarks>
-    /// <p>
-    /// See <see cref="RelationalModelExtensions.GetCollation" /> for another approach to defining a
-    /// database-wide collation.
-    /// </p>
-    /// <p>
-    /// For more information, see https://www.KingbaseES.org/docs/current/collation.html.
-    /// </p>
+    ///     <p>
+    ///         See <see cref="RelationalModelExtensions.GetCollation" /> for another approach to defining a
+    ///         database-wide collation.
+    ///     </p>
+    ///     <p>
+    ///         For more information, see https://www.KingbaseES.org/docs/current/collation.html.
+    ///     </p>
     /// </remarks>
+    [Obsolete("Use EF Core's standard model bulk configuration API")]
     public static string? GetDefaultColumnCollation(this IReadOnlyModel model)
         => (string?)model[KdbndpAnnotationNames.DefaultColumnCollation];
 
     /// <summary>
-    /// Sets the default collation for all columns in the database, or <c>null</c> if none is defined.
-    /// This causes EF Core to specify an explicit collation when creating all column, unless one is overridden
-    /// on a column.
+    ///     Sets the default collation for all columns in the database, or <c>null</c> if none is defined.
+    ///     This causes EF Core to specify an explicit collation when creating all column, unless one is overridden
+    ///     on a column.
     /// </summary>
     /// <remarks>
-    /// <p>
-    /// See <see cref="RelationalModelExtensions.GetCollation" /> for another approach to defining a
-    /// database-wide collation.
-    /// </p>
-    /// <p>
-    /// For more information, see https://www.KingbaseES.org/docs/current/collation.html.
-    /// </p>
+    ///     <p>
+    ///         See <see cref="RelationalModelExtensions.GetCollation" /> for another approach to defining a
+    ///         database-wide collation.
+    ///     </p>
+    ///     <p>
+    ///         For more information, see https://www.KingbaseES.org/docs/current/collation.html.
+    ///     </p>
     /// </remarks>
+    [Obsolete("Use EF Core's standard model bulk configuration API")]
     public static void SetDefaultColumnCollation(this IMutableModel model, string? collation)
         => model.SetOrRemoveAnnotation(KdbndpAnnotationNames.DefaultColumnCollation, collation);
 
     /// <summary>
-    /// Sets the default collation for all columns in the database, or <c>null</c> if none is defined.
-    /// This causes EF Core to specify an explicit collation when creating all column, unless one is overridden
-    /// on a column.
+    ///     Sets the default collation for all columns in the database, or <c>null</c> if none is defined.
+    ///     This causes EF Core to specify an explicit collation when creating all column, unless one is overridden
+    ///     on a column.
     /// </summary>
     /// <remarks>
-    /// <p>
-    /// See <see cref="RelationalModelExtensions.SetCollation(Microsoft.EntityFrameworkCore.Metadata.IMutableModel,string)" />
-    /// for another approach to defining a database-wide collation.
-    /// </p>
-    /// <p>
-    /// For more information, see https://www.KingbaseES.org/docs/current/collation.html.
-    /// </p>
+    ///     <p>
+    ///         See <see cref="RelationalModelExtensions.SetCollation(Microsoft.EntityFrameworkCore.Metadata.IMutableModel,string)" />
+    ///         for another approach to defining a database-wide collation.
+    ///     </p>
+    ///     <p>
+    ///         For more information, see https://www.KingbaseES.org/docs/current/collation.html.
+    ///     </p>
     /// </remarks>
+    [Obsolete("Use EF Core's standard model bulk configuration API")]
     public static string? SetDefaultColumnCollation(this IConventionModel model, string? collation, bool fromDataAnnotation = false)
     {
         model.SetOrRemoveAnnotation(KdbndpAnnotationNames.DefaultColumnCollation, collation, fromDataAnnotation);
@@ -338,10 +564,11 @@ public static class KdbndpModelExtensions
     }
 
     /// <summary>
-    /// Returns the <see cref="ConfigurationSource" /> for the default column collation.
+    ///     Returns the <see cref="ConfigurationSource" /> for the default column collation.
     /// </summary>
     /// <param name="model">The model.</param>
     /// <returns>The <see cref="ConfigurationSource" /> for the default column collation.</returns>
+    [Obsolete("Use EF Core's standard model bulk configuration API")]
     public static ConfigurationSource? GetDefaultColumnCollationConfigurationSource(this IConventionModel model)
         => model.FindAnnotation(KdbndpAnnotationNames.DefaultColumnCollation)?.GetConfigurationSource();
 

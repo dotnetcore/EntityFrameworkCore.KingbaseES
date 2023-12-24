@@ -117,6 +117,9 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="TwoDataSourcesInSameServiceProvider" xml:space="preserve">
+    <value>Using two distinct data sources within a service provider is not supported, and Entity Framework is not building its own internal service provider. Either allow Entity Framework to build the service provider by removing the call to '{useInternalServiceProvider}', or ensure that the same data source is used for all uses of a given service provider passed to '{useInternalServiceProvider}'.</value>
+  </data>
   <data name="DuplicateColumnCompressionMethodMismatch" xml:space="preserve">
     <value>'{entityType1}.{property1}' and '{entityType2}.{property2}' are both mapped to column '{columnName}' in '{table}' but are configured with different compression methods.</value>
   </data>
@@ -131,6 +134,9 @@
   </data>
   <data name="DuplicateIndexIncludedMismatch" xml:space="preserve">
     <value>The indexes {index1} on '{entityType1}' and {index2} on '{entityType2}' are both mapped to '{table}.{indexName}', but have different included columns: {includedColumns1} and {includedColumns2}.</value>
+  </data>
+  <data name="Ef7JsonMappingNotSupported" xml:space="preserve">
+    <value>The EF Core 7.0 JSON support isn't currently supported by the Kdbndp provider. To map to JSON, see https://www.Kdbndp.org/efcore/mapping/json.html.</value>
   </data>
   <data name="FreeTextFunctionOnClient" xml:space="preserve">
     <value>The 'FreeText' method is not supported because the query has switched to client-evaluation. Inspect the log to determine which query expressions are triggering client-evaluation.</value>
@@ -222,5 +228,23 @@
   </data>
   <data name="TransientExceptionDetected" xml:space="preserve">
     <value>An exception has been raised that is likely due to a transient failure. Consider enabling transient error resiliency by adding 'EnableRetryOnFailure()' to the 'UseSqlServer' call.</value>
+  </data>
+  <data name="IdentityBadType" xml:space="preserve">
+    <value>Identity value generation cannot be used for the property '{property}' on entity type '{entityType}' because the property type is '{propertyType}'. Identity value generation can only be used with signed integer properties.</value>
+  </data>
+  <data name="RowValueComparisonRequiresTuplesOfSameLength" xml:space="preserve">
+    <value>Row values comparisons require two tuple arguments of the same length.</value>
+  </data>
+  <data name="CannotUseDataSourceWithAuthCallbacks" xml:space="preserve">
+    <value>Cannot set ProvideClientCertificatesCallback, RemoteCertificateValidationCallback or ProvidePasswordCallback when a data source is provided.</value>
+  </data>
+  <data name="StoredProcedureResultColumnsNotSupported" xml:space="preserve">
+    <value>The entity type '{entityType}' is mapped to the stored procedure '{sproc}', which is configured with result columns. KingbaseES stored procedures do not support result columns; use output parameters instead.</value>
+  </data>
+  <data name="StoredProcedureReturnValuesNotSupported" xml:space="preserve">
+    <value>The entity type '{entityType}' is mapped to the stored procedure '{sproc}', which is configured with result columns. KingbaseES stored procedures do not support return values; use output parameters instead.</value>
+  </data>
+  <data name="StoredProcedureReturnValueNotSupported" xml:space="preserve">
+    <value>The entity type '{entityType}' is mapped to the stored procedure '{sproc}', which is configured with result columns. KingbaseES stored procedures do not support return values; use output parameters instead.</value>
   </data>
 </root>

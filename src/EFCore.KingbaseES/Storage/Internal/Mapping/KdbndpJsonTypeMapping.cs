@@ -1,21 +1,29 @@
-using System;
-using System.IO;
-using System.Linq.Expressions;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Utilities;
-using KdbndpTypes;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
 /// <summary>
-/// A mapping for an arbitrary user POCO to KingbaseES jsonb or json.
-/// For mapping to .NET string, see <see cref="KdbndpStringTypeMapping"/>.
+///     Supports the older Kdbndp-specific JSON mapping, allowing mapping json/jsonb to text, to e.g.
+///     <see cref="JsonElement" /> (weakly-typed mapping) or to arbitrary POCOs (but without them being modeled).
+///     For the standard EF JSON support, which relies on owned entity modeling, see <see cref="KdbndpOwnedJsonTypeMapping" />.
 /// </summary>
 public class KdbndpJsonTypeMapping : KdbndpTypeMapping
 {
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public static KdbndpJsonTypeMapping Default { get; } = new("jsonb", typeof(JsonElement));
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpJsonTypeMapping(string storeType, Type clrType)
         : base(storeType, clrType, storeType == "jsonb" ? KdbndpDbType.Jsonb : KdbndpDbType.Json)
     {
@@ -25,19 +33,50 @@ public class KdbndpJsonTypeMapping : KdbndpTypeMapping
         }
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected KdbndpJsonTypeMapping(RelationalTypeMappingParameters parameters, KdbndpDbType KdbndpDbType)
         : base(parameters, KdbndpDbType)
     {
     }
 
-    public virtual bool IsJsonb => StoreType == "jsonb";
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual bool IsJsonb
+        => StoreType == "jsonb";
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new KdbndpJsonTypeMapping(parameters, KdbndpDbType);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected virtual string EscapeSqlLiteral(string literal)
         => Check.NotNull(literal, nameof(literal)).Replace("'", "''");
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override string GenerateNonNullSqlLiteral(object value)
     {
         switch (value)
@@ -66,15 +105,22 @@ public class KdbndpJsonTypeMapping : KdbndpTypeMapping
         }
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override Expression GenerateCodeLiteral(object value)
         => value switch
         {
-            JsonDocument document => Expression.Call(ParseMethod, Expression.Constant(document.RootElement.ToString()), DefaultJsonDocumentOptions),
-            JsonElement element   => Expression.Property(
+            JsonDocument document => Expression.Call(
+                ParseMethod, Expression.Constant(document.RootElement.ToString()), DefaultJsonDocumentOptions),
+            JsonElement element => Expression.Property(
                 Expression.Call(ParseMethod, Expression.Constant(element.ToString()), DefaultJsonDocumentOptions),
                 nameof(JsonDocument.RootElement)),
-            string s              => Expression.Constant(s),
-            _                     => throw new NotSupportedException("Cannot generate code literals for JSON POCOs")
+            string s => Expression.Constant(s),
+            _ => throw new NotSupportedException("Cannot generate code literals for JSON POCOs")
         };
 
     private static readonly Expression DefaultJsonDocumentOptions = Expression.New(typeof(JsonDocumentOptions));

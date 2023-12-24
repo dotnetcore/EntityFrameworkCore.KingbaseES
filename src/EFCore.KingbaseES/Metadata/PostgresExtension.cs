@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Utilities;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
+﻿using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata;
 
 /// <summary>
-/// Represents the metadata for a KingbaseES extension.
+///     Represents the metadata for a KingbaseES extension.
 /// </summary>
 public class PostgresExtension
 {
@@ -17,12 +11,16 @@ public class PostgresExtension
     private readonly string _annotationName;
 
     /// <summary>
-    /// Creates a <see cref="PostgresExtension"/>.
+    ///     Creates a <see cref="PostgresExtension" />.
     /// </summary>
     /// <param name="annotatable">The annotatable to search for the annotation.</param>
     /// <param name="annotationName">The annotation name to search for in the annotatable.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="annotatable"/></exception>
-    /// <exception cref="ArgumentNullException"><paramref name="annotationName"/></exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="annotatable" />
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="annotationName" />
+    /// </exception>
     internal PostgresExtension(IReadOnlyAnnotatable annotatable, string annotationName)
     {
         _annotatable = Check.NotNull(annotatable, nameof(annotatable));
@@ -30,18 +28,24 @@ public class PostgresExtension
     }
 
     /// <summary>
-    /// Gets or adds a <see cref="PostgresExtension"/> from or to the <see cref="IMutableAnnotatable"/>.
+    ///     Gets or adds a <see cref="PostgresExtension" /> from or to the <see cref="IMutableAnnotatable" />.
     /// </summary>
     /// <param name="annotatable">The annotatable from which to get or add the extension.</param>
     /// <param name="schema">The extension schema or null to use the model's default schema.</param>
     /// <param name="name">The extension name.</param>
     /// <param name="version">The extension version.</param>
     /// <returns>
-    /// The <see cref="PostgresExtension"/> from the <see cref="IMutableAnnotatable"/>.
+    ///     The <see cref="PostgresExtension" /> from the <see cref="IMutableAnnotatable" />.
     /// </returns>
-    /// <exception cref="ArgumentException"><paramref name="schema"/></exception>
-    /// <exception cref="ArgumentNullException"><paramref name="annotatable"/></exception>
-    /// <exception cref="ArgumentNullException"><paramref name="name"/></exception>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="schema" />
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="annotatable" />
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="name" />
+    /// </exception>
     public static PostgresExtension GetOrAddPostgresExtension(
         IMutableAnnotatable annotatable,
         string? schema,
@@ -52,7 +56,7 @@ public class PostgresExtension
         Check.NullButNotEmpty(schema, nameof(schema));
         Check.NotNull(name, nameof(name));
 
-        if (FindPostgresExtension(annotatable, schema, name) is PostgresExtension postgresExtension)
+        if (FindPostgresExtension(annotatable, schema, name) is { } postgresExtension)
         {
             return postgresExtension;
         }
@@ -63,16 +67,59 @@ public class PostgresExtension
     }
 
     /// <summary>
-    /// Gets or adds a <see cref="PostgresExtension"/> from or to the <see cref="IMutableAnnotatable"/>.
+    ///     Gets or adds a <see cref="PostgresExtension" /> from or to the <see cref="IMutableAnnotatable" />.
+    /// </summary>
+    /// <param name="annotatable">The annotatable from which to get or add the extension.</param>
+    /// <param name="schema">The extension schema or null to use the model's default schema.</param>
+    /// <param name="name">The extension name.</param>
+    /// <param name="version">The extension version.</param>
+    /// <returns>
+    ///     The <see cref="PostgresExtension" /> from the <see cref="IMutableAnnotatable" />.
+    /// </returns>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="schema" />
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="annotatable" />
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="name" />
+    /// </exception>
+    public static PostgresExtension GetOrAddPostgresExtension(
+        IConventionAnnotatable annotatable,
+        string? schema,
+        string name,
+        string? version)
+    {
+        Check.NotNull(annotatable, nameof(annotatable));
+        Check.NullButNotEmpty(schema, nameof(schema));
+        Check.NotNull(name, nameof(name));
+
+        if (FindPostgresExtension(annotatable, schema, name) is { } postgresExtension)
+        {
+            return postgresExtension;
+        }
+
+        var annotationName = BuildAnnotationName(schema, name);
+
+        return new PostgresExtension(annotatable, annotationName) { Version = version };
+    }
+
+    /// <summary>
+    ///     Gets or adds a <see cref="PostgresExtension" /> from or to the <see cref="IMutableAnnotatable" />.
     /// </summary>
     /// <param name="annotatable">The annotatable from which to get or add the extension.</param>
     /// <param name="name">The extension name.</param>
     /// <param name="version">The extension version.</param>
     /// <returns>
-    /// The <see cref="PostgresExtension"/> from the <see cref="IMutableAnnotatable"/>.
+    ///     The <see cref="PostgresExtension" /> from the <see cref="IMutableAnnotatable" />.
     /// </returns>
-    /// <exception cref="ArgumentNullException"><paramref name="annotatable"/></exception>
-    /// <exception cref="ArgumentNullException"><paramref name="name"/></exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="annotatable" />
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="name" />
+    /// </exception>
     public static PostgresExtension GetOrAddPostgresExtension(
         IMutableAnnotatable annotatable,
         string name,
@@ -80,17 +127,23 @@ public class PostgresExtension
         => GetOrAddPostgresExtension(annotatable, null, name, version);
 
     /// <summary>
-    /// Finds a <see cref="PostgresExtension"/> in the <see cref="IAnnotatable"/>, or returns null if not found.
+    ///     Finds a <see cref="PostgresExtension" /> in the <see cref="IAnnotatable" />, or returns null if not found.
     /// </summary>
     /// <param name="annotatable">The annotatable to search for the extension.</param>
     /// <param name="schema">The extension schema. The default schema is never used.</param>
     /// <param name="name">The extension name.</param>
     /// <returns>
-    /// The <see cref="PostgresExtension"/> from the <see cref="IAnnotatable"/>.
+    ///     The <see cref="PostgresExtension" /> from the <see cref="IAnnotatable" />.
     /// </returns>
-    /// <exception cref="ArgumentException"><paramref name="schema"/></exception>
-    /// <exception cref="ArgumentNullException"><paramref name="annotatable"/></exception>
-    /// <exception cref="ArgumentNullException"><paramref name="name"/></exception>
+    /// <exception cref="ArgumentException">
+    ///     <paramref name="schema" />
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="annotatable" />
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="name" />
+    /// </exception>
     public static PostgresExtension? FindPostgresExtension(
         IReadOnlyAnnotatable annotatable,
         string? schema,
@@ -105,19 +158,21 @@ public class PostgresExtension
         return annotatable[annotationName] is null ? null : new PostgresExtension(annotatable, annotationName);
     }
 
-    private static string BuildAnnotationName(string? schema, string name)
+    internal static string BuildAnnotationName(string? schema, string name)
         => schema is not null
             ? $"{KdbndpAnnotationNames.PostgresExtensionPrefix}{schema}.{name}"
             : $"{KdbndpAnnotationNames.PostgresExtensionPrefix}{name}";
 
     /// <summary>
-    /// Gets the collection of <see cref="PostgresExtension"/> stored in the <see cref="IAnnotatable"/>.
+    ///     Gets the collection of <see cref="PostgresExtension" /> stored in the <see cref="IAnnotatable" />.
     /// </summary>
-    /// <param name="annotatable">The annotatable to search for <see cref="PostgresExtension"/> annotations.</param>
+    /// <param name="annotatable">The annotatable to search for <see cref="PostgresExtension" /> annotations.</param>
     /// <returns>
-    /// The collection of <see cref="PostgresExtension"/> stored in the <see cref="IAnnotatable"/>.
+    ///     The collection of <see cref="PostgresExtension" /> stored in the <see cref="IAnnotatable" />.
     /// </returns>
-    /// <exception cref="ArgumentNullException"><paramref name="annotatable"/></exception>
+    /// <exception cref="ArgumentNullException">
+    ///     <paramref name="annotatable" />
+    /// </exception>
     public static IEnumerable<PostgresExtension> GetPostgresExtensions(IReadOnlyAnnotatable annotatable)
         => Check.NotNull(annotatable, nameof(annotatable))
             .GetAnnotations()
@@ -125,22 +180,25 @@ public class PostgresExtension
             .Select(a => new PostgresExtension(annotatable, a.Name));
 
     /// <summary>
-    /// The <see cref="Annotatable"/> that stores the extension.
+    ///     The <see cref="Annotatable" /> that stores the extension.
     /// </summary>
-    public virtual Annotatable Annotatable => (Annotatable)_annotatable;
+    public virtual Annotatable Annotatable
+        => (Annotatable)_annotatable;
 
     /// <summary>
-    /// The extension schema or null to represent the default schema.
+    ///     The extension schema or null to represent the default schema.
     /// </summary>
-    public virtual string? Schema => GetData().Schema;
+    public virtual string? Schema
+        => GetData().Schema;
 
     /// <summary>
-    /// The extension name.
+    ///     The extension name.
     /// </summary>
-    public virtual string Name => GetData().Name!;
+    public virtual string Name
+        => GetData().Name!;
 
     /// <summary>
-    /// The extension version.
+    ///     The extension version.
     /// </summary>
     public virtual string? Version
     {
@@ -165,7 +223,7 @@ public class PostgresExtension
         }
 
         // TODO: Can't actually use schema and name...they might not be set when this is first called.
-        var schemaNameValue = value.Split(',').Select(x => x.Trim()).Select(x => x == "" || x == "''" ? null : x).ToArray();
+        var schemaNameValue = value.Split(',').Select(x => x.Trim()).Select(x => x is "" or "''" ? null : x).ToArray();
         var schemaAndName = annotation.Name.Substring(KdbndpAnnotationNames.PostgresExtensionPrefix.Length).Split('.');
         switch (schemaAndName.Length)
         {

@@ -1,21 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Conventions;
 
 /// <summary>
-/// A convention that creates an optimized copy of the mutable model.
+///     A convention that creates an optimized copy of the mutable model.
 /// </summary>
 public class KdbndpRuntimeModelConvention : RelationalRuntimeModelConvention
 {
     /// <summary>
-    /// Creates a new instance of <see cref="RelationalModelConvention"/>.
+    ///     Creates a new instance of <see cref="KdbndpRuntimeModelConvention" />.
     /// </summary>
     /// <param name="dependencies">Parameter object containing dependencies for this convention.</param>
     /// <param name="relationalDependencies">Parameter object containing relational dependencies for this convention.</param>
@@ -28,7 +21,10 @@ public class KdbndpRuntimeModelConvention : RelationalRuntimeModelConvention
 
     /// <inheritdoc />
     protected override void ProcessModelAnnotations(
-        Dictionary<string, object?> annotations, IModel model, RuntimeModel runtimeModel, bool runtime)
+        Dictionary<string, object?> annotations,
+        IModel model,
+        RuntimeModel runtimeModel,
+        bool runtime)
     {
         base.ProcessModelAnnotations(annotations, model, runtimeModel, runtime);
 
@@ -37,7 +33,10 @@ public class KdbndpRuntimeModelConvention : RelationalRuntimeModelConvention
             annotations.Remove(KdbndpAnnotationNames.DatabaseTemplate);
             annotations.Remove(KdbndpAnnotationNames.Tablespace);
             annotations.Remove(KdbndpAnnotationNames.CollationDefinitionPrefix);
+
+#pragma warning disable CS0618
             annotations.Remove(KdbndpAnnotationNames.DefaultColumnCollation);
+#pragma warning restore CS0618
 
             foreach (var annotationName in annotations.Keys.Where(
                          k =>
@@ -52,7 +51,10 @@ public class KdbndpRuntimeModelConvention : RelationalRuntimeModelConvention
 
     /// <inheritdoc />
     protected override void ProcessEntityTypeAnnotations(
-        IDictionary<string, object?> annotations, IEntityType entityType, RuntimeEntityType runtimeEntityType, bool runtime)
+        Dictionary<string, object?> annotations,
+        IEntityType entityType,
+        RuntimeEntityType runtimeEntityType,
+        bool runtime)
     {
         base.ProcessEntityTypeAnnotations(annotations, entityType, runtimeEntityType, runtime);
 
@@ -70,7 +72,10 @@ public class KdbndpRuntimeModelConvention : RelationalRuntimeModelConvention
 
     /// <inheritdoc />
     protected override void ProcessPropertyAnnotations(
-        Dictionary<string, object?> annotations, IProperty property, RuntimeProperty runtimeProperty, bool runtime)
+        Dictionary<string, object?> annotations,
+        IProperty property,
+        RuntimeProperty runtimeProperty,
+        bool runtime)
     {
         base.ProcessPropertyAnnotations(annotations, property, runtimeProperty, runtime);
 
@@ -87,7 +92,7 @@ public class KdbndpRuntimeModelConvention : RelationalRuntimeModelConvention
         }
     }
 
-    /// <inheritdoc/>
+    /// <inheritdoc />
     protected override void ProcessIndexAnnotations(
         Dictionary<string, object?> annotations,
         IIndex index,
@@ -104,6 +109,13 @@ public class KdbndpRuntimeModelConvention : RelationalRuntimeModelConvention
             annotations.Remove(KdbndpAnnotationNames.IndexNullSortOrder);
             annotations.Remove(KdbndpAnnotationNames.IndexInclude);
             annotations.Remove(KdbndpAnnotationNames.CreatedConcurrently);
+            annotations.Remove(KdbndpAnnotationNames.NullsDistinct);
+
+            foreach (var annotationName in annotations.Keys.Where(
+                         k => k.StartsWith(KdbndpAnnotationNames.StorageParameterPrefix, StringComparison.Ordinal)))
+            {
+                annotations.Remove(annotationName);
+            }
         }
     }
 }

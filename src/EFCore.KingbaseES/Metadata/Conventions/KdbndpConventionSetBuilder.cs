@@ -1,34 +1,55 @@
-using System;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using Microsoft.Extensions.DependencyInjection;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Infrastructure.Internal;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Conventions;
 
-[EntityFrameworkInternal]
+/// <summary>
+///     A builder for building conventions for Kdbndp.
+/// </summary>
+/// <remarks>
+///     <para>
+///         The service lifetime is <see cref="ServiceLifetime.Scoped" /> and multiple registrations are allowed. This means that each
+///         <see cref="DbContext" /> instance will use its own set of instances of this service. The implementations may depend on other
+///         services registered with any lifetime. The implementations do not need to be thread-safe.
+///     </para>
+///     <para>
+///         See <see href="https://aka.ms/efcore-docs-conventions">Model building conventions</see>, and
+///     </para>
+/// </remarks>
 public class KdbndpConventionSetBuilder : RelationalConventionSetBuilder
 {
+    private readonly IRelationalTypeMappingSource _typeMappingSource;
     private readonly Version _postgresVersion;
 
-    [EntityFrameworkInternal]
+    /// <summary>
+    ///     Creates a new <see cref="KdbndpConventionSetBuilder" /> instance.
+    /// </summary>
+    /// <param name="dependencies">The core dependencies for this service.</param>
+    /// <param name="relationalDependencies">The relational dependencies for this service.</param>
+    /// <param name="typeMappingSource">The type mapping source to use.</param>
+    /// <param name="KdbndpSingletonOptions">The singleton options to use.</param>
     public KdbndpConventionSetBuilder(
         ProviderConventionSetBuilderDependencies dependencies,
         RelationalConventionSetBuilderDependencies relationalDependencies,
-        IKdbndpSingletonOptions KdbndpOptions)
+        IRelationalTypeMappingSource typeMappingSource,
+        IKdbndpSingletonOptions KdbndpSingletonOptions)
         : base(dependencies, relationalDependencies)
-        => _postgresVersion = KdbndpOptions.PostgresVersion;
+    {
+        _typeMappingSource = typeMappingSource;
+        _postgresVersion = KdbndpSingletonOptions.PostgresVersion;
+    }
 
-    [EntityFrameworkInternal]
+    /// <inheritdoc />
     public override ConventionSet CreateConventionSet()
     {
         var conventionSet = base.CreateConventionSet();
 
-        var valueGenerationStrategyConvention = new KdbndpValueGenerationStrategyConvention(Dependencies, RelationalDependencies, _postgresVersion);
+        var valueGenerationStrategyConvention =
+            new KdbndpValueGenerationStrategyConvention(Dependencies, RelationalDependencies, _postgresVersion);
         conventionSet.ModelInitializedConventions.Add(valueGenerationStrategyConvention);
-        conventionSet.ModelInitializedConventions.Add(new RelationalMaxIdentifierLengthConvention(63, Dependencies, RelationalDependencies));
+        conventionSet.ModelInitializedConventions.Add(
+            new RelationalMaxIdentifierLengthConvention(63, Dependencies, RelationalDependencies));
+
+        conventionSet.PropertyAddedConventions.Add(new KdbndpJsonElementHackConvention());
 
         ValueGenerationConvention valueGenerationConvention = new KdbndpValueGenerationConvention(Dependencies, RelationalDependencies);
         ReplaceConvention(conventionSet.EntityTypeBaseTypeChangedConventions, valueGenerationConvention);
@@ -49,6 +70,7 @@ public class KdbndpConventionSetBuilder : RelationalConventionSetBuilder
             conventionSet.PropertyAnnotationChangedConventions, (RelationalValueGenerationConvention)valueGenerationConvention);
 
         conventionSet.ModelFinalizingConventions.Add(valueGenerationStrategyConvention);
+        conventionSet.ModelFinalizingConventions.Add(new KdbndpPostgresModelFinalizingConvention(_typeMappingSource));
         ReplaceConvention(conventionSet.ModelFinalizingConventions, storeGenerationConvention);
         ReplaceConvention(
             conventionSet.ModelFinalizingConventions,

@@ -1,18 +1,13 @@
-using System.Collections.Generic;
-using System.Reflection;
 using System.Text.RegularExpressions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
+using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
 /// <summary>
-/// Translates Regex.IsMatch calls into KingbaseES regex expressions for database-side processing.
+///     Translates Regex.IsMatch calls into KingbaseES regex expressions for database-side processing.
 /// </summary>
 /// <remarks>
-/// http://www.KingbaseES.org/docs/current/static/functions-matching.html
+///     http://www.KingbaseES.org/docs/current/static/functions-matching.html
 /// </remarks>
 public class KdbndpRegexIsMatchTranslator : IMethodCallTranslator
 {
@@ -26,8 +21,16 @@ public class KdbndpRegexIsMatchTranslator : IMethodCallTranslator
 
     private readonly KdbndpSqlExpressionFactory _sqlExpressionFactory;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpRegexIsMatchTranslator(KdbndpSqlExpressionFactory sqlExpressionFactory)
-        => _sqlExpressionFactory = sqlExpressionFactory;
+    {
+        _sqlExpressionFactory = sqlExpressionFactory;
+    }
 
     /// <inheritdoc />
     public virtual SqlExpression? Translate(
@@ -56,7 +59,7 @@ public class KdbndpRegexIsMatchTranslator : IMethodCallTranslator
         }
         else
         {
-            return null;  // We don't support non-constant regex options
+            return null; // We don't support non-constant regex options
         }
 
         return (options & UnsupportedRegexOptions) == 0

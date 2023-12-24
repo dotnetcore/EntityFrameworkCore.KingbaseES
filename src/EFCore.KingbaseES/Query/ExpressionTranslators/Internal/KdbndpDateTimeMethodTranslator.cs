@@ -1,17 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal;
+using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
 {
     private static readonly Dictionary<MethodInfo, string> MethodInfoDatePartMapping = new()
@@ -32,9 +29,7 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
         { typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddSeconds), new[] { typeof(double) })!, "secs" },
         //{ typeof(DateTimeOffset).GetRuntimeMethod(nameof(DateTimeOffset.AddMilliseconds), new[] { typeof(double) })!, "milliseconds" }
 
-        { typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddYears), new[] { typeof(int) })!, "years" },
-        { typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddMonths), new[] { typeof(int) })!, "months" },
-        { typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddDays), new[] { typeof(int) })!, "days" },
+        // DateOnly.AddDays, AddMonths and AddYears have a specialized translation, see below
         { typeof(TimeOnly).GetRuntimeMethod(nameof(TimeOnly.AddHours), new[] { typeof(int) })!, "hours" },
         { typeof(TimeOnly).GetRuntimeMethod(nameof(TimeOnly.AddMinutes), new[] { typeof(int) })!, "mins" },
     };
@@ -49,11 +44,28 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
     private static readonly MethodInfo DateTime_SpecifyKind
         = typeof(DateTime).GetRuntimeMethod(nameof(DateTime.SpecifyKind), new[] { typeof(DateTime), typeof(DateTimeKind) })!;
 
+    private static readonly MethodInfo DateTime_Distance
+        = typeof(KdbndpDbFunctionsExtensions).GetRuntimeMethod(
+            nameof(KdbndpDbFunctionsExtensions.Distance), new[] { typeof(DbFunctions), typeof(DateTime), typeof(DateTime) })!;
+
     private static readonly MethodInfo DateOnly_FromDateTime
         = typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.FromDateTime), new[] { typeof(DateTime) })!;
 
     private static readonly MethodInfo DateOnly_ToDateTime
         = typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.ToDateTime), new[] { typeof(TimeOnly) })!;
+
+    private static readonly MethodInfo DateOnly_Distance
+        = typeof(KdbndpDbFunctionsExtensions).GetRuntimeMethod(
+            nameof(KdbndpDbFunctionsExtensions.Distance), new[] { typeof(DbFunctions), typeof(DateOnly), typeof(DateOnly) })!;
+
+    private static readonly MethodInfo DateOnly_AddDays
+        = typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddDays), new[] { typeof(int) })!;
+
+    private static readonly MethodInfo DateOnly_AddMonths
+        = typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddMonths), new[] { typeof(int) })!;
+
+    private static readonly MethodInfo DateOnly_AddYears
+        = typeof(DateOnly).GetRuntimeMethod(nameof(DateOnly.AddYears), new[] { typeof(int) })!;
 
     private static readonly MethodInfo TimeOnly_FromDateTime
         = typeof(TimeOnly).GetRuntimeMethod(nameof(TimeOnly.FromDateTime), new[] { typeof(DateTime) })!;
@@ -70,9 +82,13 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
     private static readonly MethodInfo TimeOnly_Add_TimeSpan
         = typeof(TimeOnly).GetRuntimeMethod(nameof(TimeOnly.Add), new[] { typeof(TimeSpan) })!;
 
-    private static readonly MethodInfo TimeZoneInfo_ConvertTimeBySystemTimeZoneId
+    private static readonly MethodInfo TimeZoneInfo_ConvertTimeBySystemTimeZoneId_DateTime
         = typeof(TimeZoneInfo).GetRuntimeMethod(
             nameof(TimeZoneInfo.ConvertTimeBySystemTimeZoneId), new[] { typeof(DateTime), typeof(string) })!;
+
+    private static readonly MethodInfo TimeZoneInfo_ConvertTimeBySystemTimeZoneId_DateTimeOffset
+        = typeof(TimeZoneInfo).GetRuntimeMethod(
+            nameof(TimeZoneInfo.ConvertTimeBySystemTimeZoneId), new[] { typeof(DateTimeOffset), typeof(string) })!;
 
     private static readonly MethodInfo TimeZoneInfo_ConvertTimeToUtc
         = typeof(TimeZoneInfo).GetRuntimeMethod(nameof(TimeZoneInfo.ConvertTimeToUtc), new[] { typeof(DateTime) })!;
@@ -85,6 +101,12 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
     private readonly RelationalTypeMapping _intervalMapping;
     private readonly RelationalTypeMapping _textMapping;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpDateTimeMethodTranslator(
         IRelationalTypeMappingSource typeMappingSource,
         KdbndpSqlExpressionFactory sqlExpressionFactory)
@@ -103,67 +125,64 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
-        => TranslateDatePart(instance, method, arguments)
-            ?? TranslateDateTime(instance, method, arguments)
-            ?? TranslateDateOnly(instance, method, arguments)
-            ?? TranslateTimeOnly(instance, method, arguments)
-            ?? TranslateTimeZoneInfo(instance, method, arguments);
+        => TranslateDateTime(instance, method, arguments)
+           ?? TranslateDateOnly(instance, method, arguments)
+           ?? TranslateTimeOnly(instance, method, arguments)
+           ?? TranslateTimeZoneInfo(method, arguments)
+           ?? TranslateDatePart(instance, method, arguments);
 
     private SqlExpression? TranslateDatePart(
         SqlExpression? instance,
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments)
-    {
-        if (instance is null || !MethodInfoDatePartMapping.TryGetValue(method, out var datePart))
-        {
-            return null;
-        }
-
-        if (arguments[0] is not { } interval)
-        {
-            return null;
-        }
-
-        // Note: ideally we'd simply generate a KingbaseES interval expression, but the .NET mapping of that is TimeSpan,
-        // which does not work for months, years, etc. So we generate special fragments instead.
-        if (interval is SqlConstantExpression constantExpression)
-        {
-            // We generate constant intervals as INTERVAL '1 days'
-            if (constantExpression.Type == typeof(double)
-                && ((double)constantExpression.Value! >= int.MaxValue || (double)constantExpression.Value <= int.MinValue))
-            {
-                return null;
-            }
-
-            interval = _sqlExpressionFactory.Fragment(FormattableString.Invariant($"INTERVAL '{constantExpression.Value} {datePart}'"));
-        }
-        else
-        {
-            // For non-constants, we can't parameterize INTERVAL '1 days'. Instead, we use CAST($1 || ' days' AS interval).
-            // Note that a make_interval() function also exists, but accepts only int (for all fields except for
-            // seconds), so we don't use it.
-            // Note: we instantiate SqlBinaryExpression manually rather than via sqlExpressionFactory because
-            // of the non-standard Add expression (concatenate int with text)
-            interval = _sqlExpressionFactory.Convert(
-                new SqlBinaryExpression(
-                    ExpressionType.Add,
-                    _sqlExpressionFactory.Convert(interval, typeof(string), _textMapping),
-                    _sqlExpressionFactory.Constant(' ' + datePart, _textMapping),
-                    typeof(string),
-                    _textMapping),
-                typeof(TimeSpan),
-                _intervalMapping);
-        }
-
-        return _sqlExpressionFactory.Add(instance, interval, instance.TypeMapping);
-    }
+        => instance is not null
+            && MethodInfoDatePartMapping.TryGetValue(method, out var datePart)
+            && CreateIntervalExpression(arguments[0], datePart) is SqlExpression interval
+                ? _sqlExpressionFactory.Add(instance, interval, instance.TypeMapping)
+                : null;
 
     private SqlExpression? TranslateDateTime(
         SqlExpression? instance,
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments)
     {
-        if (instance is not null)
+        if (instance is null)
+        {
+            if (method == DateTime_SpecifyKind)
+            {
+                if (arguments[1] is not SqlConstantExpression { Value: DateTimeKind kind })
+                {
+                    throw new InvalidOperationException("Translating SpecifyKind is only supported with a constant Kind argument");
+                }
+
+                var typeMapping = arguments[0].TypeMapping;
+
+                if (typeMapping is not KdbndpTimestampTypeMapping and not KdbndpTimestampTzTypeMapping)
+                {
+                    throw new InvalidOperationException("Translating SpecifyKind is only supported on timestamp/timestamptz columns");
+                }
+
+                if (kind == DateTimeKind.Utc)
+                {
+                    return typeMapping is KdbndpTimestampTypeMapping
+                        ? _sqlExpressionFactory.AtUtc(arguments[0])
+                        : arguments[0];
+                }
+
+                if (kind is DateTimeKind.Unspecified or DateTimeKind.Local)
+                {
+                    return typeMapping is KdbndpTimestampTzTypeMapping
+                        ? _sqlExpressionFactory.AtUtc(arguments[0])
+                        : arguments[0];
+                }
+            }
+
+            if (method == DateTime_Distance)
+            {
+                return _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.Distance, arguments[1], arguments[2]);
+            }
+        }
+        else
         {
             if (method == DateTime_ToUniversalTime)
             {
@@ -176,35 +195,6 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
             }
         }
 
-        if (method == DateTime_SpecifyKind)
-        {
-            if (arguments[1] is not SqlConstantExpression { Value: DateTimeKind kind })
-            {
-                throw new InvalidOperationException("Translating SpecifyKind is only supported with a constant Kind argument");
-            }
-
-            var typeMapping = arguments[0].TypeMapping;
-
-            if (typeMapping is not KdbndpTimestampTypeMapping and not KdbndpTimestampTzTypeMapping)
-            {
-                throw new InvalidOperationException("Translating SpecifyKind is only supported on timestamp/timestamptz columns");
-            }
-
-            if (kind == DateTimeKind.Utc)
-            {
-                return typeMapping is KdbndpTimestampTypeMapping
-                    ? _sqlExpressionFactory.AtUtc(arguments[0])
-                    : arguments[0];
-            }
-
-            if (kind is DateTimeKind.Unspecified or DateTimeKind.Local)
-            {
-                return typeMapping is KdbndpTimestampTzTypeMapping
-                    ? _sqlExpressionFactory.AtUtc(arguments[0])
-                    : arguments[0];
-            }
-        }
-
         return null;
     }
 
@@ -213,24 +203,31 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments)
     {
-        if (method == DateOnly_FromDateTime)
+        if (instance is null)
         {
-            // Note: converting timestamptz to date performs a timezone conversion, which is not what .NET DateOnly.FromDateTime does.
-            // So if our operand is a timestamptz, we first change the type to timestamp with AT TIME ZONE 'UTC' (returns the same value
-            // but as a timestamptz).
-            // If our operand is already timestamp, no need to do anything. We throw for anything else to avoid accidentally applying
-            // AT TIME ZONE to a non-timestamptz, which would do a timezone conversion
-            var dateTime = arguments[0].TypeMapping switch
+            if (method == DateOnly_FromDateTime)
             {
-                KdbndpTimestampTypeMapping => arguments[0],
-                KdbndpTimestampTzTypeMapping => _sqlExpressionFactory.AtUtc(arguments[0]),
-                _ => throw new NotSupportedException("Can only apply TimeOnly.FromDateTime on a timestamp or timestamptz column")
-            };
+                // Note: converting timestamptz to date performs a timezone conversion, which is not what .NET DateOnly.FromDateTime does.
+                // So if our operand is a timestamptz, we first change the type to timestamp with AT TIME ZONE 'UTC' (returns the same value
+                // but as a timestamptz).
+                // If our operand is already timestamp, no need to do anything. We throw for anything else to avoid accidentally applying
+                // AT TIME ZONE to a non-timestamptz, which would do a timezone conversion
+                var dateTime = arguments[0].TypeMapping switch
+                {
+                    KdbndpTimestampTypeMapping => arguments[0],
+                    KdbndpTimestampTzTypeMapping => _sqlExpressionFactory.AtUtc(arguments[0]),
+                    _ => throw new NotSupportedException("Can only apply TimeOnly.FromDateTime on a timestamp or timestamptz column")
+                };
 
-            return _sqlExpressionFactory.Convert(dateTime, typeof(DateOnly), _typeMappingSource.FindMapping(typeof(DateOnly)));
+                return _sqlExpressionFactory.Convert(dateTime, typeof(DateOnly), _typeMappingSource.FindMapping(typeof(DateOnly)));
+            }
+
+            if (method == DateOnly_Distance)
+            {
+                return _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.Distance, arguments[1], arguments[2]);
+            }
         }
-
-        if (instance is not null)
+        else
         {
             if (method == DateOnly_ToDateTime)
             {
@@ -240,6 +237,28 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
                     _sqlExpressionFactory.ApplyDefaultTypeMapping(arguments[0]),
                     typeof(DateTime),
                     _timestampMapping);
+            }
+
+            // In PG, date + int = date (int interpreted as days)
+            if (method == DateOnly_AddDays)
+            {
+                return _sqlExpressionFactory.Add(instance, arguments[0]);
+            }
+
+            // For months and years, date + interval yields a timestamp (since interval could have a time component), so we need to cast
+            // the results back to date
+            if (method == DateOnly_AddMonths
+                && CreateIntervalExpression(arguments[0], "months") is SqlExpression interval1)
+            {
+                return _sqlExpressionFactory.Convert(
+                    _sqlExpressionFactory.Add(instance, interval1, instance.TypeMapping), typeof(DateOnly));
+            }
+
+            if (method == DateOnly_AddYears
+                && CreateIntervalExpression(arguments[0], "years") is SqlExpression interval2)
+            {
+                return _sqlExpressionFactory.Convert(
+                    _sqlExpressionFactory.Add(instance, interval2, instance.TypeMapping), typeof(DateOnly));
             }
         }
 
@@ -300,11 +319,10 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
     }
 
     private SqlExpression? TranslateTimeZoneInfo(
-        SqlExpression? instance,
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments)
     {
-        if (method == TimeZoneInfo_ConvertTimeBySystemTimeZoneId)
+        if (method == TimeZoneInfo_ConvertTimeBySystemTimeZoneId_DateTime)
         {
             var typeMapping = arguments[0].TypeMapping;
             if (typeMapping is null
@@ -331,5 +349,37 @@ public class KdbndpDateTimeMethodTranslator : IMethodCallTranslator
         }
 
         return null;
+    }
+
+    private SqlExpression? CreateIntervalExpression(SqlExpression intervalNum, string datePart)
+    {
+        // Note: ideally we'd simply generate a KingbaseES interval expression, but the .NET mapping of that is TimeSpan,
+        // which does not work for months, years, etc. So we generate special fragments instead.
+        if (intervalNum is SqlConstantExpression constantExpression)
+        {
+            // We generate constant intervals as INTERVAL '1 days'
+            if (constantExpression.Type == typeof(double)
+                && ((double)constantExpression.Value! >= int.MaxValue || (double)constantExpression.Value <= int.MinValue))
+            {
+                return null;
+            }
+
+            return _sqlExpressionFactory.Fragment(FormattableString.Invariant($"INTERVAL '{constantExpression.Value} {datePart}'"));
+        }
+
+        // For non-constants, we can't parameterize INTERVAL '1 days'. Instead, we use CAST($1 || ' days' AS interval).
+        // Note that a make_interval() function also exists, but accepts only int (for all fields except for
+        // seconds), so we don't use it.
+        // Note: we instantiate SqlBinaryExpression manually rather than via sqlExpressionFactory because
+        // of the non-standard Add expression (concatenate int with text)
+        return _sqlExpressionFactory.Convert(
+            new SqlBinaryExpression(
+                ExpressionType.Add,
+                _sqlExpressionFactory.Convert(intervalNum, typeof(string), _textMapping),
+                _sqlExpressionFactory.Constant(' ' + datePart, _textMapping),
+                typeof(string),
+                _textMapping),
+            typeof(TimeSpan),
+            _intervalMapping);
     }
 }

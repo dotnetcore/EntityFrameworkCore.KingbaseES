@@ -1,8 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.ValueGeneration;
-
-namespace Kdbndp.EntityFrameworkCore.KingbaseES.ValueGeneration.Internal;
+﻿namespace Kdbndp.EntityFrameworkCore.KingbaseES.ValueGeneration.Internal;
 
 /// <summary>
 ///     This API supports the Entity Framework Core infrastructure and is not intended to be used

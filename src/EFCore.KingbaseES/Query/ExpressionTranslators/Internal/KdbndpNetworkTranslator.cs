@@ -1,18 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq.Expressions;
 using System.Net;
 using System.Net.NetworkInformation;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions.Internal;
 using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
+using ExpressionExtensions = Microsoft.EntityFrameworkCore.Query.ExpressionExtensions;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
@@ -87,13 +77,13 @@ public class KdbndpNetworkTranslator : IMethodCallTranslator
             nameof(KdbndpNetworkDbFunctionsExtensions.ContainedBy)
                 => _sqlExpressionFactory.ContainedBy(arguments[1], arguments[2]),
             nameof(KdbndpNetworkDbFunctionsExtensions.ContainedByOrEqual)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.NetworkContainedByOrEqual, arguments[1], arguments[2]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.NetworkContainedByOrEqual, arguments[1], arguments[2]),
             nameof(KdbndpNetworkDbFunctionsExtensions.Contains)
                 => _sqlExpressionFactory.Contains(arguments[1], arguments[2]),
             nameof(KdbndpNetworkDbFunctionsExtensions.ContainsOrEqual)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.NetworkContainsOrEqual, arguments[1], arguments[2]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.NetworkContainsOrEqual, arguments[1], arguments[2]),
             nameof(KdbndpNetworkDbFunctionsExtensions.ContainsOrContainedBy)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.NetworkContainsOrContainedBy, arguments[1], arguments[2]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.NetworkContainsOrContainedBy, arguments[1], arguments[2]),
 
             nameof(KdbndpNetworkDbFunctionsExtensions.BitwiseNot)            => new SqlUnaryExpression(ExpressionType.Not,
                 arguments[1],

@@ -1,8 +1,3 @@
-
-// ReSharper disable once CheckNamespace
-
-using System;
-using System.Linq;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Internal;
 
 // ReSharper disable once CheckNamespace

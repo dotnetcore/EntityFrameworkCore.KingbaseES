@@ -1,9 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using System.Diagnostics;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.ValueGeneration;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.ValueGeneration.Internal;
 
@@ -39,7 +34,7 @@ public class KdbndpValueGeneratorCache : ValueGeneratorCache, IKdbndpValueGenera
 
         return _sequenceGeneratorCache.GetOrAdd(
             GetSequenceName(sequence, connection),
-            sequenceName => new KdbndpSequenceValueGeneratorState(sequence));
+            _ => new KdbndpSequenceValueGeneratorState(sequence));
     }
 
     private static string GetSequenceName(ISequence sequence, IRelationalConnection connection)
@@ -48,8 +43,9 @@ public class KdbndpValueGeneratorCache : ValueGeneratorCache, IKdbndpValueGenera
 
         return dbConnection.Database.ToUpperInvariant()
             + "::"
-            + dbConnection.DataSource?.ToUpperInvariant()
+            + dbConnection.DataSource.ToUpperInvariant()
             + "::"
-            + (sequence.Schema is null ? "" : sequence.Schema + ".") + sequence.Name;
+            + (sequence.Schema is null ? "" : sequence.Schema + ".")
+            + sequence.Name;
     }
 }

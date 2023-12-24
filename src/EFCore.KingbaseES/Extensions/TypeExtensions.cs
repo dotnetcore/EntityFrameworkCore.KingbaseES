@@ -1,7 +1,5 @@
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using KdbndpTypes;
+using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
 // ReSharper disable once CheckNamespace
 namespace System.Reflection;
@@ -23,6 +21,14 @@ internal static class TypeExtensions
                 : null;
         return elementType is not null;
     }
+
+    internal static bool IsRange(this Type type)
+        => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(KdbndpRange<>)
+            || type is { Name: "Interval" or "DateInterval", Namespace: "NodaTime" };
+
+    internal static bool IsMultirange(this Type type)
+        => type.TryGetElementType(out var elementType) && elementType.IsRange();
+
 
     internal static bool TryGetRangeSubtype(this Type type, [NotNullWhen(true)] out Type? subtypeType)
     {

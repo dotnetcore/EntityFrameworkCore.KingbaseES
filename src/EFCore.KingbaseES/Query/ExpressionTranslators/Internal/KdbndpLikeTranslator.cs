@@ -1,14 +1,7 @@
-using System.Collections.Generic;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
 /// <summary>
-/// Translates <see cref="T:DbFunctionsExtensions.Like"/> methods into KingbaseES LIKE expressions.
+///     Translates <see cref="T:DbFunctionsExtensions.Like" /> methods into KingbaseES LIKE expressions.
 /// </summary>
 public class KdbndpLikeTranslator : IMethodCallTranslator
 {
@@ -37,11 +30,13 @@ public class KdbndpLikeTranslator : IMethodCallTranslator
     private readonly KdbndpSqlExpressionFactory _sqlExpressionFactory;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="KdbndpMathTranslator"/> class.
+    ///     Initializes a new instance of the <see cref="KdbndpMathTranslator" /> class.
     /// </summary>
     /// <param name="sqlExpressionFactory">The SQL expression factory to use when generating expressions..</param>
     public KdbndpLikeTranslator(KdbndpSqlExpressionFactory sqlExpressionFactory)
-        => _sqlExpressionFactory = sqlExpressionFactory;
+    {
+        _sqlExpressionFactory = sqlExpressionFactory;
+    }
 
     /// <inheritdoc />
     public virtual SqlExpression? Translate(
@@ -83,17 +78,16 @@ public class KdbndpLikeTranslator : IMethodCallTranslator
 
         var (match, pattern) = (arguments[1], arguments[2]);
 
-        if (pattern is SqlConstantExpression constantPattern &&
-            constantPattern.Value is string patternValue &&
-            !patternValue.Contains("\\"))
+        if (pattern is SqlConstantExpression { Value: string patternValue }
+            && !patternValue.Contains('\\'))
         {
             return sensitive
                 ? _sqlExpressionFactory.Like(match, pattern)
-                : (SqlExpression)_sqlExpressionFactory.ILike(match, pattern);
+                : _sqlExpressionFactory.ILike(match, pattern);
         }
 
         return sensitive
             ? _sqlExpressionFactory.Like(match, pattern, _sqlExpressionFactory.Constant(string.Empty))
-            : (SqlExpression)_sqlExpressionFactory.ILike(match, pattern, _sqlExpressionFactory.Constant(string.Empty));
+            : _sqlExpressionFactory.ILike(match, pattern, _sqlExpressionFactory.Constant(string.Empty));
     }
 }

@@ -1,74 +1,95 @@
-using System;
-using System.Collections.Generic;
+using System.Data.Common;
 using System.Globalization;
-using System.Linq;
 using System.Net.Security;
 using System.Text;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Utilities;
-using Microsoft.Extensions.DependencyInjection;
-using KdbndpTypes;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Infrastructure.Internal;
 
 /// <summary>
-/// Represents options managed by the Kdbndp.
+///     Represents options managed by the Kdbndp.
 /// </summary>
 public class KdbndpOptionsExtension : RelationalOptionsExtension
 {
     private DbContextOptionsExtensionInfo? _info;
     private readonly List<UserRangeDefinition> _userRangeDefinitions;
 
+    private Version? _postgresVersion;
+
     /// <summary>
-    /// The name of the database for administrative operations.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public static readonly Version DefaultPostgresVersion = new(14, 0);
+
+    /// <summary>
+    ///     The backend version to target.
+    /// </summary>
+    public virtual Version PostgresVersion
+        => _postgresVersion ?? DefaultPostgresVersion;
+
+    /// <summary>
+    ///     The backend version to target, but returns <see langword="null" /> unless the user explicitly specified a version.
+    /// </summary>
+    public virtual bool IsPostgresVersionSet
+        => _postgresVersion is not null;
+
+    /// <summary>
+    ///     The <see cref="DbDataSource" />, or <see langword="null" /> if a connection string or <see cref="DbConnection" /> was used
+    ///     instead of a <see cref="DbDataSource" />.
+    /// </summary>
+    public virtual DbDataSource? DataSource { get; private set; }
+
+    /// <summary>
+    ///     The name of the database for administrative operations.
     /// </summary>
     public virtual string? AdminDatabase { get; private set; }
 
     /// <summary>
-    /// The backend version to target.
-    /// </summary>
-    public virtual Version? PostgresVersion { get; private set; }
-
-    /// <summary>
-    /// Whether to target Redshift.
+    ///     Whether to target Redshift.
     /// </summary>
     public virtual bool UseRedshift { get; private set; }
 
     /// <summary>
-    /// The list of range mappings specified by the user.
+    ///     The list of range mappings specified by the user.
     /// </summary>
-    public virtual IReadOnlyList<UserRangeDefinition> UserRangeDefinitions => _userRangeDefinitions;
+    public virtual IReadOnlyList<UserRangeDefinition> UserRangeDefinitions
+        => _userRangeDefinitions;
 
     /// <summary>
-    /// The specified <see cref="ProvideClientCertificatesCallback"/>.
+    ///     The specified <see cref="ProvideClientCertificatesCallback" />.
     /// </summary>
     public virtual ProvideClientCertificatesCallback? ProvideClientCertificatesCallback { get; private set; }
 
     /// <summary>
-    /// The specified <see cref="RemoteCertificateValidationCallback"/>.
+    ///     The specified <see cref="RemoteCertificateValidationCallback" />.
     /// </summary>
     public virtual RemoteCertificateValidationCallback? RemoteCertificateValidationCallback { get; private set; }
-
     /// <summary>
-    /// True if reverse null ordering is enabled; otherwise, false.
+    ///     True if reverse null ordering is enabled; otherwise, false.
     /// </summary>
     public virtual bool ReverseNullOrdering { get; private set; }
 
     /// <summary>
-    /// Initializes an instance of <see cref="KdbndpOptionsExtension"/> with the default settings.
+    ///     Initializes an instance of <see cref="KdbndpOptionsExtension" /> with the default settings.
     /// </summary>
     public KdbndpOptionsExtension()
-        => _userRangeDefinitions = new List<UserRangeDefinition>();
+    {
+        _userRangeDefinitions = new List<UserRangeDefinition>();
+    }
 
     // NB: When adding new options, make sure to update the copy ctor below.
     /// <summary>
-    /// Initializes an instance of <see cref="KdbndpOptionsExtension"/> by copying the specified instance.
+    ///     Initializes an instance of <see cref="KdbndpOptionsExtension" /> by copying the specified instance.
     /// </summary>
     /// <param name="copyFrom">The instance to copy.</param>
-    public KdbndpOptionsExtension(KdbndpOptionsExtension copyFrom) : base(copyFrom)
+    public KdbndpOptionsExtension(KdbndpOptionsExtension copyFrom)
+        : base(copyFrom)
     {
+        DataSource = copyFrom.DataSource;
         AdminDatabase = copyFrom.AdminDatabase;
-        PostgresVersion = copyFrom.PostgresVersion;
+        _postgresVersion = copyFrom._postgresVersion;
         UseRedshift = copyFrom.UseRedshift;
         _userRangeDefinitions = new List<UserRangeDefinition>(copyFrom._userRangeDefinitions);
         ProvideClientCertificatesCallback = copyFrom.ProvideClientCertificatesCallback;
@@ -78,10 +99,52 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
 
     // The following is a hack to set the default minimum batch size to 2 in Kdbndp
     // See https://github.com/aspnet/EntityFrameworkCore/pull/10091
-    public override int? MinBatchSize => base.MinBatchSize ?? 2;
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public override int? MinBatchSize
+        => base.MinBatchSize ?? 2;
 
     /// <summary>
-    /// Returns a copy of the current instance configured with the specified range mapping.
+    ///     Creates a new instance with all options the same as for this instance, but with the given option changed.
+    ///     It is unusual to call this method directly. Instead use <see cref="DbContextOptionsBuilder" />.
+    /// </summary>
+    /// <param name="dataSource">The option to change.</param>
+    /// <returns>A new instance with the option changed.</returns>
+    public virtual RelationalOptionsExtension WithDataSource(DbDataSource? dataSource)
+    {
+        var clone = (KdbndpOptionsExtension)Clone();
+
+        clone.DataSource = dataSource;
+
+        return clone;
+    }
+
+    /// <inheritdoc />
+    public override RelationalOptionsExtension WithConnectionString(string? connectionString)
+    {
+        var clone = (KdbndpOptionsExtension)base.WithConnectionString(connectionString);
+
+        clone.DataSource = null;
+
+        return clone;
+    }
+
+    /// <inheritdoc />
+    public override RelationalOptionsExtension WithConnection(DbConnection? connection)
+    {
+        var clone = (KdbndpOptionsExtension)base.WithConnection(connection);
+
+        clone.DataSource = null;
+
+        return clone;
+    }
+
+    /// <summary>
+    ///     Returns a copy of the current instance configured with the specified range mapping.
     /// </summary>
     public virtual KdbndpOptionsExtension WithUserRangeDefinition<TSubtype>(
         string rangeName,
@@ -90,7 +153,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
         => WithUserRangeDefinition(rangeName, schemaName, typeof(TSubtype), subtypeName);
 
     /// <summary>
-    /// Returns a copy of the current instance configured with the specified range mapping.
+    ///     Returns a copy of the current instance configured with the specified range mapping.
     /// </summary>
     public virtual KdbndpOptionsExtension WithUserRangeDefinition(
         string rangeName,
@@ -109,7 +172,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
     }
 
     /// <summary>
-    /// Returns a copy of the current instance configured to use the specified administrative database.
+    ///     Returns a copy of the current instance configured to use the specified administrative database.
     /// </summary>
     /// <param name="adminDatabase">The name of the database for administrative operations.</param>
     public virtual KdbndpOptionsExtension WithAdminDatabase(string? adminDatabase)
@@ -122,27 +185,27 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
     }
 
     /// <summary>
-    /// Returns a copy of the current instance with the specified KingbaseES version.
+    ///     Returns a copy of the current instance with the specified KingbaseES version.
     /// </summary>
     /// <param name="postgresVersion">The backend version to target.</param>
     /// <returns>
-    /// A copy of the current instance with the specified KingbaseES version.
+    ///     A copy of the current instance with the specified KingbaseES version.
     /// </returns>
     public virtual KdbndpOptionsExtension WithPostgresVersion(Version? postgresVersion)
     {
         var clone = (KdbndpOptionsExtension)Clone();
 
-        clone.PostgresVersion = postgresVersion;
+        clone._postgresVersion = postgresVersion;
 
         return clone;
     }
 
     /// <summary>
-    /// Returns a copy of the current instance with the specified Redshift settings.
+    ///     Returns a copy of the current instance with the specified Redshift settings.
     /// </summary>
     /// <param name="useRedshift">Whether to target Redshift.</param>
     /// <returns>
-    /// A copy of the current instance with the specified Redshift setting.
+    ///     A copy of the current instance with the specified Redshift setting.
     /// </returns>
     public virtual KdbndpOptionsExtension WithRedshift(bool useRedshift)
     {
@@ -154,7 +217,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
     }
 
     /// <summary>
-    /// Returns a copy of the current instance configured with the specified value..
+    ///     Returns a copy of the current instance configured with the specified value..
     /// </summary>
     /// <param name="reverseNullOrdering">True to enable reverse null ordering; otherwise, false.</param>
     internal virtual KdbndpOptionsExtension WithReverseNullOrdering(bool reverseNullOrdering)
@@ -171,7 +234,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
     {
         base.Validate(options);
 
-        if (UseRedshift && PostgresVersion is not null)
+        if (UseRedshift && _postgresVersion is not null)
         {
             throw new InvalidOperationException($"{nameof(UseRedshift)} and {nameof(PostgresVersion)} cannot both be set");
         }
@@ -180,7 +243,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
     #region Authentication
 
     /// <summary>
-    /// Returns a copy of the current instance with the specified <see cref="ProvideClientCertificatesCallback"/>.
+    ///     Returns a copy of the current instance with the specified <see cref="ProvideClientCertificatesCallback" />.
     /// </summary>
     /// <param name="callback">The specified callback.</param>
     public virtual KdbndpOptionsExtension WithProvideClientCertificatesCallback(ProvideClientCertificatesCallback? callback)
@@ -193,7 +256,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
     }
 
     /// <summary>
-    /// Returns a copy of the current instance with the specified <see cref="RemoteCertificateValidationCallback"/>.
+    ///     Returns a copy of the current instance with the specified <see cref="RemoteCertificateValidationCallback" />.
     /// </summary>
     /// <param name="callback">The specified callback.</param>
     public virtual KdbndpOptionsExtension WithRemoteCertificateValidationCallback(RemoteCertificateValidationCallback? callback)
@@ -210,7 +273,8 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
     #region Infrastructure
 
     /// <inheritdoc />
-    protected override RelationalOptionsExtension Clone() => new KdbndpOptionsExtension(this);
+    protected override RelationalOptionsExtension Clone()
+        => new KdbndpOptionsExtension(this);
 
     /// <inheritdoc />
     public override void ApplyServices(IServiceCollection services)
@@ -230,9 +294,11 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
         {
         }
 
-        private new KdbndpOptionsExtension Extension => (KdbndpOptionsExtension)base.Extension;
+        private new KdbndpOptionsExtension Extension
+            => (KdbndpOptionsExtension)base.Extension;
 
-        public override bool IsDatabaseProvider => true;
+        public override bool IsDatabaseProvider
+            => true;
 
         public override string LogFragment
         {
@@ -250,7 +316,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
                     builder.Append(nameof(Extension.AdminDatabase)).Append("=").Append(Extension.AdminDatabase).Append(' ');
                 }
 
-                if (Extension.PostgresVersion is not null)
+                if (Extension._postgresVersion is not null)
                 {
                     builder.Append(nameof(Extension.PostgresVersion)).Append("=").Append(Extension.PostgresVersion).Append(' ');
                 }
@@ -272,7 +338,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
 
                 if (Extension.ReverseNullOrdering)
                 {
-                    builder.Append(nameof(Extension.ReverseNullOrdering)).Append(" ");;
+                    builder.Append(nameof(Extension.ReverseNullOrdering)).Append(" ");
                 }
 
                 if (Extension.UserRangeDefinitions.Count > 0)
@@ -297,7 +363,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
                         builder.Append(";");
                     }
 
-                    builder.Length = builder.Length -1;
+                    builder.Length -= 1;
                     builder.Append("] ");
                 }
 
@@ -316,6 +382,11 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
                     hashCode.Add(userRangeDefinition);
                 }
 
+                if (Extension.DataSource is not null)
+                {
+                    hashCode.Add(Extension.DataSource.ConnectionString);
+                }
+
                 hashCode.Add(Extension.AdminDatabase);
                 hashCode.Add(Extension.PostgresVersion);
                 hashCode.Add(Extension.UseRedshift);
@@ -329,6 +400,14 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
             return _serviceProviderHash.Value;
         }
 
+        public override bool ShouldUseSameServiceProvider(DbContextOptionsExtensionInfo other)
+            => other is ExtensionInfo otherInfo
+                && Extension.PostgresVersion == otherInfo.Extension.PostgresVersion
+                && ReferenceEquals(Extension.DataSource, otherInfo.Extension.DataSource)
+                && Extension.ReverseNullOrdering == otherInfo.Extension.ReverseNullOrdering
+                && Extension.UserRangeDefinitions.SequenceEqual(otherInfo.Extension.UserRangeDefinitions)
+                && Extension.UseRedshift == otherInfo.Extension.UseRedshift;
+
         /// <inheritdoc />
         public override void PopulateDebugInfo(IDictionary<string, string> debugInfo)
         {
@@ -336,7 +415,7 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
                 = (Extension.AdminDatabase?.GetHashCode() ?? 0).ToString(CultureInfo.InvariantCulture);
 
             debugInfo["Kdbndp.EntityFrameworkCore.KingbaseES:" + nameof(KdbndpDbContextOptionsBuilder.SetPostgresVersion)]
-                = (Extension.PostgresVersion?.GetHashCode() ?? 0).ToString(CultureInfo.InvariantCulture);
+                = Extension.PostgresVersion.GetHashCode().ToString(CultureInfo.InvariantCulture);
 
             debugInfo["Kdbndp.EntityFrameworkCore.KingbaseES:" + nameof(KdbndpDbContextOptionsBuilder.UseRedshift)]
                 = Extension.UseRedshift.GetHashCode().ToString(CultureInfo.InvariantCulture);
@@ -352,7 +431,11 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
 
             foreach (var rangeDefinition in Extension._userRangeDefinitions)
             {
-                debugInfo["Kdbndp.EntityFrameworkCore.KingbaseES:" + nameof(KdbndpDbContextOptionsBuilder.MapRange) + ":" + rangeDefinition.SubtypeClrType.Name]
+                debugInfo[
+                        "Kdbndp.EntityFrameworkCore.KingbaseES:"
+                        + nameof(KdbndpDbContextOptionsBuilder.MapRange)
+                        + ":"
+                        + rangeDefinition.SubtypeClrType.Name]
                     = rangeDefinition.GetHashCode().ToString(CultureInfo.InvariantCulture);
             }
         }
@@ -362,33 +445,39 @@ public class KdbndpOptionsExtension : RelationalOptionsExtension
 }
 
 /// <summary>
-/// A definition for a user-defined KingbaseES range to be mapped.
+///     A definition for a user-defined KingbaseES range to be mapped.
 /// </summary>
 public record UserRangeDefinition
 {
     /// <summary>
-    /// The name of the KingbaseES range type to be mapped.
+    ///     The name of the KingbaseES range type to be mapped.
     /// </summary>
     public virtual string RangeName { get; }
 
     /// <summary>
-    /// The KingbaseES schema in which the range is defined. If null, the default schema is used
-    /// (which is public unless changed on the model).
+    ///     The KingbaseES schema in which the range is defined. If null, the default schema is used
+    ///     (which is public unless changed on the model).
     /// </summary>
     public virtual string? SchemaName { get; }
 
     /// <summary>
-    /// The CLR type of the range's subtype (or element).
-    /// The actual mapped type will be an <see cref="KdbndpRange{T}"/> over this type.
+    ///     The CLR type of the range's subtype (or element).
+    ///     The actual mapped type will be an <see cref="KdbndpRange{T}" /> over this type.
     /// </summary>
     public virtual Type SubtypeClrType { get; }
 
     /// <summary>
-    /// Optionally, the name of the range's KingbaseES subtype (or element).
-    /// This is usually not needed - the subtype will be inferred based on <see cref="SubtypeClrType"/>.
+    ///     Optionally, the name of the range's KingbaseES subtype (or element).
+    ///     This is usually not needed - the subtype will be inferred based on <see cref="SubtypeClrType" />.
     /// </summary>
     public virtual string? SubtypeName { get; }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public UserRangeDefinition(
         string rangeName,
         string? schemaName,

@@ -1,26 +1,19 @@
-﻿using System;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-
-namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Conventions;
+﻿namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Conventions;
 
 /// <summary>
-/// A convention that configures the default model <see cref="KdbndpValueGenerationStrategy"/> as
-/// <see cref="KdbndpValueGenerationStrategy.IdentityByDefaultColumn"/> for newer KingbaseES versions,
-/// and <see cref="KdbndpValueGenerationStrategy.SerialColumn"/> for pre-10.0 versions.
+///     A convention that configures the default model <see cref="KdbndpValueGenerationStrategy" /> as
+///     <see cref="KdbndpValueGenerationStrategy.IdentityByDefaultColumn" /> for newer KingbaseES versions,
+///     and <see cref="KdbndpValueGenerationStrategy.SerialColumn" /> for pre-10.0 versions.
 /// </summary>
 public class KdbndpValueGenerationStrategyConvention : IModelInitializedConvention, IModelFinalizingConvention
 {
     private readonly Version? _postgresVersion;
 
     /// <summary>
-    /// Creates a new instance of <see cref="KdbndpValueGenerationStrategyConvention" />.
+    ///     Creates a new instance of <see cref="KdbndpValueGenerationStrategyConvention" />.
     /// </summary>
     /// <param name="dependencies">Parameter object containing dependencies for this convention.</param>
-    /// <param name="relationalDependencies">Parameter object containing relational dependencies for this convention.</param>
+    /// <param name="relationalDependencies"> Parameter object containing relational dependencies for this convention.</param>
     /// <param name="postgresVersion">The KingbaseES version being targeted. This affects the default value generation strategy.</param>
     public KdbndpValueGenerationStrategyConvention(
         ProviderConventionSetBuilderDependencies dependencies,
@@ -28,13 +21,19 @@ public class KdbndpValueGenerationStrategyConvention : IModelInitializedConventi
         Version? postgresVersion)
     {
         Dependencies = dependencies;
+        RelationalDependencies = relationalDependencies;
         _postgresVersion = postgresVersion;
     }
 
     /// <summary>
-    /// Parameter object containing service dependencies.
+    ///     Parameter object containing service dependencies.
     /// </summary>
     protected virtual ProviderConventionSetBuilderDependencies Dependencies { get; }
+
+    /// <summary>
+    ///     Relational provider-specific dependencies for this service.
+    /// </summary>
+    protected virtual RelationalConventionSetBuilderDependencies RelationalDependencies { get; }
 
     /// <inheritdoc />
     public virtual void ProcessModelInitialized(IConventionModelBuilder modelBuilder, IConventionContext<IConventionModelBuilder> context)
@@ -45,33 +44,32 @@ public class KdbndpValueGenerationStrategyConvention : IModelInitializedConventi
 
     /// <inheritdoc />
     public virtual void ProcessModelFinalizing(
-        IConventionModelBuilder modelBuilder, IConventionContext<IConventionModelBuilder> context)
+        IConventionModelBuilder modelBuilder,
+        IConventionContext<IConventionModelBuilder> context)
     {
         foreach (var entityType in modelBuilder.Metadata.GetEntityTypes())
         {
             foreach (var property in entityType.GetDeclaredProperties())
             {
                 KdbndpValueGenerationStrategy? strategy = null;
-                var table = entityType.GetTableName();
-                if (table is not null)
+                var declaringTable = property.GetMappedStoreObjects(StoreObjectType.Table).FirstOrDefault();
+                if (declaringTable.Name != null!)
                 {
-                    var storeObject = StoreObjectIdentifier.Table(table, entityType.GetSchema());
-                    strategy = property.GetValueGenerationStrategy(storeObject, Dependencies.TypeMappingSource);
+                    strategy = property.GetValueGenerationStrategy(declaringTable, Dependencies.TypeMappingSource);
                     if (strategy == KdbndpValueGenerationStrategy.None
-                        && !IsStrategyNoneNeeded(property, storeObject))
+                        && !IsStrategyNoneNeeded(property, declaringTable))
                     {
                         strategy = null;
                     }
                 }
                 else
                 {
-                    var view = entityType.GetViewName();
-                    if (view is not null)
+                    var declaringView = property.GetMappedStoreObjects(StoreObjectType.View).FirstOrDefault();
+                    if (declaringView.Name != null!)
                     {
-                        var storeObject = StoreObjectIdentifier.View(view, entityType.GetViewSchema());
-                        strategy = property.GetValueGenerationStrategy(storeObject, Dependencies.TypeMappingSource);
+                        strategy = property.GetValueGenerationStrategy(declaringView, Dependencies.TypeMappingSource);
                         if (strategy == KdbndpValueGenerationStrategy.None
-                            && !IsStrategyNoneNeeded(property, storeObject))
+                            && !IsStrategyNoneNeeded(property, declaringView))
                         {
                             strategy = null;
                         }
@@ -79,9 +77,23 @@ public class KdbndpValueGenerationStrategyConvention : IModelInitializedConventi
                 }
 
                 // Needed for the annotation to show up in the model snapshot
-                if (strategy is not null)
+                if (strategy != null
+                    && declaringTable.Name != null)
                 {
                     property.Builder.HasValueGenerationStrategy(strategy);
+
+                    if (strategy == KdbndpValueGenerationStrategy.Sequence)
+                    {
+                        var sequence = modelBuilder.HasSequence(
+                            property.GetSequenceName(declaringTable)
+                            ?? entityType.GetRootType().ShortName() + modelBuilder.Metadata.GetSequenceNameSuffix(),
+                            property.GetSequenceSchema(declaringTable)
+                            ?? modelBuilder.Metadata.GetSequenceSchema()).Metadata;
+
+                        property.Builder.HasDefaultValueSql(
+                            RelationalDependencies.UpdateSqlGenerator.GenerateObtainNextSequenceValueOperation(
+                                sequence.Name, sequence.Schema));
+                    }
                 }
             }
         }
@@ -92,7 +104,7 @@ public class KdbndpValueGenerationStrategyConvention : IModelInitializedConventi
                 && !property.TryGetDefaultValue(storeObject, out _)
                 && property.GetDefaultValueSql(storeObject) is null
                 && property.GetComputedColumnSql(storeObject) is null
-                && property.DeclaringEntityType.Model.GetValueGenerationStrategy() != KdbndpValueGenerationStrategy.None)
+                && property.DeclaringType.Model.GetValueGenerationStrategy() != KdbndpValueGenerationStrategy.None)
             {
                 var providerClrType = (property.GetValueConverter()
                         ?? (property.FindRelationalTypeMapping(storeObject)

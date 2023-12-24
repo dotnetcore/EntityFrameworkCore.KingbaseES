@@ -25,7 +25,7 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\*.cs" />
-    
+
     <None Update="Properties\KdbndpStrings.Designer.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
       <LastGenOutput>KdbndpStrings.Designer.cs</LastGenOutput>
@@ -34,6 +34,10 @@
     <None Update="Properties\SqlServerStrings.Designer.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
     </None>
+
+    <EmbeddedResource Update="Properties\KdbndpStrings.resx">
+      <CustomToolNamespace>Kdbndp.EntityFrameworkCore.KingbaseES.Internal</CustomToolNamespace>
+    </EmbeddedResource>
 
     <EmbeddedResource Update="Properties\KdbndpStrings.resx">
       <CustomToolNamespace>Kdbndp.EntityFrameworkCore.KingbaseES.Internal</CustomToolNamespace>

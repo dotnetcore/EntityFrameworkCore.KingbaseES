@@ -1,13 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Utilities;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class PostgresCollation
 {
     private readonly IReadOnlyAnnotatable _annotatable;
@@ -19,6 +19,12 @@ public class PostgresCollation
         _annotationName = Check.NotNull(annotationName, nameof(annotationName));
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static PostgresCollation GetOrAddCollation(
         IMutableAnnotatable annotatable,
         string? schema,
@@ -32,7 +38,7 @@ public class PostgresCollation
         Check.NullButNotEmpty(schema, nameof(schema));
         Check.NotEmpty(name, nameof(name));
 
-        if (FindCollation(annotatable, schema, name) is PostgresCollation collation)
+        if (FindCollation(annotatable, schema, name) is { } collation)
         {
             return collation;
         }
@@ -48,6 +54,12 @@ public class PostgresCollation
         };
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static PostgresCollation? FindCollation(
         IReadOnlyAnnotatable annotatable,
         string? schema,
@@ -67,36 +79,87 @@ public class PostgresCollation
             ? $"{KdbndpAnnotationNames.CollationDefinitionPrefix}{schema}.{name}"
             : $"{KdbndpAnnotationNames.CollationDefinitionPrefix}{name}";
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static IEnumerable<PostgresCollation> GetCollations(IReadOnlyAnnotatable annotatable)
         => Check.NotNull(annotatable, nameof(annotatable))
             .GetAnnotations()
             .Where(a => a.Name.StartsWith(KdbndpAnnotationNames.CollationDefinitionPrefix, StringComparison.Ordinal))
             .Select(a => new PostgresCollation(annotatable, a.Name));
 
-    public virtual Annotatable Annotatable => (Annotatable)_annotatable;
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual Annotatable Annotatable
+        => (Annotatable)_annotatable;
 
-    public virtual string? Schema => GetData().Schema;
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual string? Schema
+        => GetData().Schema;
 
-    public virtual string Name => GetData().Name!;
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual string Name
+        => GetData().Name!;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual string LcCollate
     {
         get => GetData().LcCollate!;
         set => SetData(lcCollate: value);
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual string LcCtype
     {
         get => GetData().LcCtype!;
         set => SetData(lcCtype: value);
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual string? Provider
     {
         get => GetData().Provider;
         set => SetData(provider: value);
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual bool? IsDeterministic
     {
         get => GetData().IsDeterministic;
@@ -132,7 +195,7 @@ public class PostgresCollation
             }
         }
 
-        var isDeterministic = elements[3] is string isDeterminsticString
+        var isDeterministic = elements[3] is { } isDeterminsticString
             ? bool.Parse(isDeterminsticString)
             : (bool?)null;
 

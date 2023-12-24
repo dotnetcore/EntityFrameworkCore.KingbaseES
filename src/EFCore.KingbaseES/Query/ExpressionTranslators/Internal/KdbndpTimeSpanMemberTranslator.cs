@@ -1,24 +1,38 @@
-using System;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Utilities;
 using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpTimeSpanMemberTranslator : IMemberTranslator
 {
     private readonly ISqlExpressionFactory _sqlExpressionFactory;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpTimeSpanMemberTranslator(ISqlExpressionFactory sqlExpressionFactory)
-        => _sqlExpressionFactory = sqlExpressionFactory;
+    {
+        _sqlExpressionFactory = sqlExpressionFactory;
+    }
 
     private static readonly bool[] FalseTrueArray = { false, true };
 
-    public virtual SqlExpression? Translate(SqlExpression? instance,
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual SqlExpression? Translate(
+        SqlExpression? instance,
         MemberInfo member,
         Type returnType,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
@@ -35,7 +49,7 @@ public class KdbndpTimeSpanMemberTranslator : IMemberTranslator
                 nameof(TimeSpan.Minutes) => Floor(DatePart("minute", instance)),
                 nameof(TimeSpan.Seconds) => Floor(DatePart("second", instance)),
                 nameof(TimeSpan.Milliseconds) => _sqlExpressionFactory.Modulo(
-                    Floor(DatePart("millisecond", instance!)),
+                    Floor(DatePart("millisecond", instance)),
                     _sqlExpressionFactory.Constant(1000)),
 
                 nameof(TimeSpan.TotalDays) => TranslateDurationTotalMember(instance, 86400),
@@ -61,11 +75,8 @@ public class KdbndpTimeSpanMemberTranslator : IMemberTranslator
                 typeof(int));
 
         SqlFunctionExpression DatePart(string part, SqlExpression value)
-            => _sqlExpressionFactory.Function("date_part", new[]
-                {
-                    _sqlExpressionFactory.Constant(part),
-                    value
-                },
+            => _sqlExpressionFactory.Function(
+                "date_part", new[] { _sqlExpressionFactory.Constant(part), value },
                 nullable: true,
                 argumentsPropagateNullability: FalseTrueArray,
                 returnType);

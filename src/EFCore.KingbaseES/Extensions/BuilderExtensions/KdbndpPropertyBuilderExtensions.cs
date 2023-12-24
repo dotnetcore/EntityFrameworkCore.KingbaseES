@@ -1,29 +1,20 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq.Expressions;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Microsoft.EntityFrameworkCore.Utilities;
+﻿using System.Collections;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.ValueConversion;
-using KdbndpTypes;
 
 // ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore;
 
 /// <summary>
-/// Kdbndp specific extension methods for <see cref="PropertyBuilder" />.
+///     Kdbndp specific extension methods for <see cref="PropertyBuilder" />.
 /// </summary>
 public static class KdbndpPropertyBuilderExtensions
 {
     #region HiLo
 
     /// <summary>
-    /// Configures the property to use a sequence-based hi-lo pattern to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///     Configures the property to use a sequence-based hi-lo pattern to generate values for new entities,
+    ///     when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
     /// </summary>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
     /// <param name="name"> The comment of the sequence.</param>
@@ -42,7 +33,7 @@ public static class KdbndpPropertyBuilderExtensions
 
         name ??= KdbndpModelExtensions.DefaultHiLoSequenceName;
 
-        var model = property.DeclaringEntityType.Model;
+        var model = property.DeclaringType.Model;
 
         if (model.FindSequence(name, schema) is null)
         {
@@ -52,14 +43,16 @@ public static class KdbndpPropertyBuilderExtensions
         property.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.SequenceHiLo);
         property.SetHiLoSequenceName(name);
         property.SetHiLoSequenceSchema(schema);
+        property.SetSequenceName(null);
+        property.SetSequenceSchema(null);
         property.RemoveIdentityOptions();
 
         return propertyBuilder;
     }
 
     /// <summary>
-    /// Configures the property to use a sequence-based hi-lo pattern to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///     Configures the property to use a sequence-based hi-lo pattern to generate values for new entities,
+    ///     when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
     /// </summary>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
     /// <param name="name"> The comment of the sequence.</param>
@@ -72,8 +65,8 @@ public static class KdbndpPropertyBuilderExtensions
         => (PropertyBuilder<TProperty>)UseHiLo((PropertyBuilder)propertyBuilder, name, schema);
 
     /// <summary>
-    /// Configures the database sequence used for the hi-lo pattern to generate values for the key property,
-    /// when targeting SQL Server.
+    ///     Configures the database sequence used for the hi-lo pattern to generate values for the key property,
+    ///     when targeting SQL Server.
     /// </summary>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
     /// <param name="name"> The name of the sequence.</param>
@@ -96,11 +89,11 @@ public static class KdbndpPropertyBuilderExtensions
 
         return name is null
             ? null
-            : propertyBuilder.Metadata.DeclaringEntityType.Model.Builder.HasSequence(name, schema, fromDataAnnotation);
+            : propertyBuilder.Metadata.DeclaringType.Model.Builder.HasSequence(name, schema, fromDataAnnotation);
     }
 
     /// <summary>
-    /// Returns a value indicating whether the given name and schema can be set for the hi-lo sequence.
+    ///     Returns a value indicating whether the given name and schema can be set for the hi-lo sequence.
     /// </summary>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
     /// <param name="name"> The name of the sequence.</param>
@@ -123,14 +116,114 @@ public static class KdbndpPropertyBuilderExtensions
 
     #endregion HiLo
 
+    #region Sequence
+
+    /// <summary>
+    ///     Configures the key property to use a sequence-based key value generation pattern to generate values for new entities,
+    ///     when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    /// </summary>
+    /// <param name="propertyBuilder">The builder for the property being configured.</param>
+    /// <param name="name">The name of the sequence.</param>
+    /// <param name="schema">The schema of the sequence.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    public static PropertyBuilder UseSequence(
+        this PropertyBuilder propertyBuilder,
+        string? name = null,
+        string? schema = null)
+    {
+        Check.NullButNotEmpty(name, nameof(name));
+        Check.NullButNotEmpty(schema, nameof(schema));
+
+        var property = propertyBuilder.Metadata;
+
+        property.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.Sequence);
+        property.SetSequenceName(name);
+        property.SetSequenceSchema(schema);
+        property.SetHiLoSequenceName(null);
+        property.SetHiLoSequenceSchema(null);
+
+        return propertyBuilder;
+    }
+
+    /// <summary>
+    ///     Configures the key property to use a sequence-based key value generation pattern to generate values for new entities,
+    ///     when targeting SQL Server. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    /// </summary>
+    /// <remarks>
+    ///     See <see href="https://aka.ms/efcore-docs-modeling">Modeling entity types and relationships</see>, and
+    ///     <see href="https://aka.ms/efcore-docs-Kdbndp">Accessing SQL Server and SQL Azure databases with EF Core</see>
+    ///     for more information and examples.
+    /// </remarks>
+    /// <typeparam name="TProperty">The type of the property being configured.</typeparam>
+    /// <param name="propertyBuilder">The builder for the property being configured.</param>
+    /// <param name="name">The name of the sequence.</param>
+    /// <param name="schema">The schema of the sequence.</param>
+    /// <returns>The same builder instance so that multiple calls can be chained.</returns>
+    public static PropertyBuilder<TProperty> UseSequence<TProperty>(
+        this PropertyBuilder<TProperty> propertyBuilder,
+        string? name = null,
+        string? schema = null)
+        => (PropertyBuilder<TProperty>)UseSequence((PropertyBuilder)propertyBuilder, name, schema);
+
+    /// <summary>
+    ///     Configures the database sequence used for the key value generation pattern to generate values for the key property,
+    ///     when targeting KingbaseES.
+    /// </summary>
+    /// <param name="propertyBuilder">The builder for the property being configured.</param>
+    /// <param name="name">The name of the sequence.</param>
+    /// <param name="schema">The schema of the sequence.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns>A builder to further configure the sequence.</returns>
+    public static IConventionSequenceBuilder? HasSequence(
+        this IConventionPropertyBuilder propertyBuilder,
+        string? name,
+        string? schema,
+        bool fromDataAnnotation = false)
+    {
+        if (!propertyBuilder.CanSetSequence(name, schema, fromDataAnnotation))
+        {
+            return null;
+        }
+
+        propertyBuilder.Metadata.SetSequenceName(name, fromDataAnnotation);
+        propertyBuilder.Metadata.SetSequenceSchema(schema, fromDataAnnotation);
+
+        return name == null
+            ? null
+            : propertyBuilder.Metadata.DeclaringType.Model.Builder.HasSequence(name, schema, fromDataAnnotation);
+    }
+
+    /// <summary>
+    ///     Returns a value indicating whether the given name and schema can be set for the key value generation sequence.
+    /// </summary>
+    /// <param name="propertyBuilder">The builder for the property being configured.</param>
+    /// <param name="name">The name of the sequence.</param>
+    /// <param name="schema">The schema of the sequence.</param>
+    /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
+    /// <returns><see langword="true" /> if the given name and schema can be set for the key value generation sequence.</returns>
+    public static bool CanSetSequence(
+        this IConventionPropertyBuilder propertyBuilder,
+        string? name,
+        string? schema,
+        bool fromDataAnnotation = false)
+    {
+        Check.NullButNotEmpty(name, nameof(name));
+        Check.NullButNotEmpty(schema, nameof(schema));
+
+        return propertyBuilder.CanSetAnnotation(KdbndpAnnotationNames.SequenceName, name, fromDataAnnotation)
+            && propertyBuilder.CanSetAnnotation(KdbndpAnnotationNames.SequenceSchema, schema, fromDataAnnotation);
+    }
+
+    #endregion Sequence
+
     #region Serial
 
     /// <summary>
-    /// Configures the property to use the KingbaseES SERIAL feature to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///     Configures the property to use the KingbaseES SERIAL feature to generate values for new entities,
+    ///     when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
     /// </summary>
     /// <para>
-    /// This option should be considered deprecated starting with KingbaseES 10, consider using <see cref="UseIdentityColumn"/> instead.
+    ///     This option should be considered deprecated starting with KingbaseES 10, consider using <see cref="UseIdentityColumn" /> instead.
     /// </para>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -141,8 +234,8 @@ public static class KdbndpPropertyBuilderExtensions
 
         var property = propertyBuilder.Metadata;
         property.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.SerialColumn);
-        property.SetHiLoSequenceName(null);
-        property.SetHiLoSequenceSchema(null);
+        property.SetSequenceName(null);
+        property.SetSequenceSchema(null);
         property.RemoveHiLoOptions();
         property.RemoveIdentityOptions();
 
@@ -150,11 +243,11 @@ public static class KdbndpPropertyBuilderExtensions
     }
 
     /// <summary>
-    /// Configures the property to use the KingbaseES SERIAL feature to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///     Configures the property to use the KingbaseES SERIAL feature to generate values for new entities,
+    ///     when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
     /// </summary>
     /// <para>
-    /// This option should be considered deprecated starting with KingbaseES 10, consider using <see cref="UseIdentityColumn"/> instead.
+    ///     This option should be considered deprecated starting with KingbaseES 10, consider using <see cref="UseIdentityColumn" /> instead.
     /// </para>
     /// <typeparam name="TProperty"> The type of the property being configured.</typeparam>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
@@ -168,13 +261,13 @@ public static class KdbndpPropertyBuilderExtensions
     #region Identity always
 
     /// <summary>
-    /// <para>
-    /// Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
-    /// Values for this property will always be generated as identity, and the application will not be able
-    /// to override this behavior by providing a value.
-    /// </para>
-    /// <para>Available only starting KingbaseES 10.</para>
+    ///     <para>
+    ///         Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
+    ///         when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///         Values for this property will always be generated as identity, and the application will not be able
+    ///         to override this behavior by providing a value.
+    ///     </para>
+    ///     <para>Available only starting KingbaseES 10.</para>
     /// </summary>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -186,18 +279,20 @@ public static class KdbndpPropertyBuilderExtensions
         property.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.IdentityAlwaysColumn);
         property.SetHiLoSequenceName(null);
         property.SetHiLoSequenceSchema(null);
+        property.SetSequenceName(null);
+        property.SetSequenceSchema(null);
 
         return propertyBuilder;
     }
 
     /// <summary>
-    /// <para>
-    /// Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
-    /// Values for this property will always be generated as identity, and the application will not be able
-    /// to override this behavior by providing a value.
-    /// </para>
-    /// <para>Available only starting KingbaseES 10.</para>
+    ///     <para>
+    ///         Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
+    ///         when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///         Values for this property will always be generated as identity, and the application will not be able
+    ///         to override this behavior by providing a value.
+    ///     </para>
+    ///     <para>Available only starting KingbaseES 10.</para>
     /// </summary>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -210,15 +305,15 @@ public static class KdbndpPropertyBuilderExtensions
     #region Identity by default
 
     /// <summary>
-    /// <para>
-    /// Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
-    /// Values for this property will be generated as identity by default, but the application will be able
-    /// to override this behavior by providing a value.
-    /// </para>
-    /// <para>
-    /// This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
-    /// </para>
+    ///     <para>
+    ///         Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
+    ///         when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///         Values for this property will be generated as identity by default, but the application will be able
+    ///         to override this behavior by providing a value.
+    ///     </para>
+    ///     <para>
+    ///         This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
+    ///     </para>
     /// </summary>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -230,20 +325,22 @@ public static class KdbndpPropertyBuilderExtensions
         property.SetValueGenerationStrategy(KdbndpValueGenerationStrategy.IdentityByDefaultColumn);
         property.SetHiLoSequenceName(null);
         property.SetHiLoSequenceSchema(null);
+        property.SetSequenceName(null);
+        property.SetSequenceSchema(null);
 
         return propertyBuilder;
     }
 
     /// <summary>
-    /// <para>
-    /// Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
-    /// Values for this property will be generated as identity by default, but the application will be able
-    /// to override this behavior by providing a value.
-    /// </para>
-    /// <para>
-    /// This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
-    /// </para>
+    ///     <para>
+    ///         Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
+    ///         when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///         Values for this property will be generated as identity by default, but the application will be able
+    ///         to override this behavior by providing a value.
+    ///     </para>
+    ///     <para>
+    ///         This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
+    ///     </para>
     /// </summary>
     /// <typeparam name="TProperty"> The type of the property being configured.</typeparam>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
@@ -253,16 +350,16 @@ public static class KdbndpPropertyBuilderExtensions
         => (PropertyBuilder<TProperty>)UseIdentityByDefaultColumn((PropertyBuilder)propertyBuilder);
 
     /// <summary>
-    /// <para>
-    /// Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
-    /// Values for this property will be generated as identity by default, but the application will be able
-    /// to override this behavior by providing a value.
-    /// </para>
-    /// <para>
-    /// This internally calls <see cref="UseIdentityByDefaultColumn(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder)"/>.
-    /// This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
-    /// </para>
+    ///     <para>
+    ///         Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
+    ///         when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///         Values for this property will be generated as identity by default, but the application will be able
+    ///         to override this behavior by providing a value.
+    ///     </para>
+    ///     <para>
+    ///         This internally calls <see cref="UseIdentityByDefaultColumn(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder)" />.
+    ///         This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
+    ///     </para>
     /// </summary>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
@@ -271,16 +368,16 @@ public static class KdbndpPropertyBuilderExtensions
         => propertyBuilder.UseIdentityByDefaultColumn();
 
     /// <summary>
-    /// <para>
-    /// Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
-    /// when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
-    /// Values for this property will be generated as identity by default, but the application will be able
-    /// to override this behavior by providing a value.
-    /// </para>
-    /// <para>
-    /// This internally calls <see cref="UseIdentityByDefaultColumn(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder)"/>.
-    /// This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
-    /// </para>
+    ///     <para>
+    ///         Configures the property to use the KingbaseES IDENTITY feature to generate values for new entities,
+    ///         when targeting KingbaseES. This method sets the property to be <see cref="ValueGenerated.OnAdd" />.
+    ///         Values for this property will be generated as identity by default, but the application will be able
+    ///         to override this behavior by providing a value.
+    ///     </para>
+    ///     <para>
+    ///         This internally calls <see cref="UseIdentityByDefaultColumn(Microsoft.EntityFrameworkCore.Metadata.Builders.PropertyBuilder)" />.
+    ///         This is the default behavior when targeting KingbaseES. Available only starting KingbaseES 10.
+    ///     </para>
     /// </summary>
     /// <typeparam name="TProperty"> The type of the property being configured.</typeparam>
     /// <param name="propertyBuilder"> The builder for the property being configured.</param>
@@ -294,13 +391,13 @@ public static class KdbndpPropertyBuilderExtensions
     #region General value generation strategy
 
     /// <summary>
-    /// Configures the value generation strategy for the key property, when targeting KingbaseES.
+    ///     Configures the value generation strategy for the key property, when targeting KingbaseES.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="valueGenerationStrategy">The value generation strategy.</param>
     /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
     /// <returns>
-    /// The same builder instance if the configuration was applied, <c>null</c> otherwise.
+    ///     The same builder instance if the configuration was applied, <c>null</c> otherwise.
     /// </returns>
     public static IConventionPropertyBuilder? HasValueGenerationStrategy(
         this IConventionPropertyBuilder propertyBuilder,
@@ -311,9 +408,15 @@ public static class KdbndpPropertyBuilderExtensions
                 KdbndpAnnotationNames.ValueGenerationStrategy, valueGenerationStrategy, fromDataAnnotation))
         {
             propertyBuilder.Metadata.SetValueGenerationStrategy(valueGenerationStrategy, fromDataAnnotation);
+
             if (valueGenerationStrategy != KdbndpValueGenerationStrategy.SequenceHiLo)
             {
                 propertyBuilder.HasHiLoSequence(null, null, fromDataAnnotation);
+            }
+
+            if (valueGenerationStrategy != KdbndpValueGenerationStrategy.Sequence)
+            {
+                propertyBuilder.HasSequence(null, null, fromDataAnnotation);
             }
 
             return propertyBuilder;
@@ -323,7 +426,7 @@ public static class KdbndpPropertyBuilderExtensions
     }
 
     /// <summary>
-    /// Returns a value indicating whether the given value can be set as the value generation strategy.
+    ///     Returns a value indicating whether the given value can be set as the value generation strategy.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="valueGenerationStrategy">The value generation strategy.</param>
@@ -347,31 +450,31 @@ public static class KdbndpPropertyBuilderExtensions
     #region Identity options
 
     /// <summary>
-    /// Sets the sequence options on an identity column.
-    /// The column must be set as identity via <see cref="UseIdentityColumn(PropertyBuilder)"/> or
-    /// <see cref="UseIdentityAlwaysColumn(PropertyBuilder)"/>.
+    ///     Sets the sequence options on an identity column. The column must be set as identity via
+    ///     <see cref="UseIdentityColumn(PropertyBuilder)" /> or <see cref="UseIdentityAlwaysColumn(PropertyBuilder)" />.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="startValue">
-    /// The starting value for the sequence.
-    /// The default starting value is <see cref="minValue"/> for ascending sequences and <see cref="maxValue"/> for descending ones.
+    ///     The starting value for the sequence.
+    ///     The default starting value is <paramref name="minValue" /> for ascending sequences and <paramref name="maxValue" /> for
+    ///     descending     ones.
     /// </param>
     /// <param name="incrementBy">The amount to increment between values. Defaults to 1.</param>
     /// <param name="minValue">
-    /// The minimum value for the sequence.
-    /// The default for an ascending sequence is 1. The default for a descending sequence is the minimum value of the data type.
+    ///     The minimum value for the sequence.
+    ///     The default for an ascending sequence is 1. The default for a descending sequence is the minimum value of the data type.
     /// </param>
     /// <param name="maxValue">
-    /// The maximum value for the sequence.
-    /// The default for an ascending sequence is the maximum value of the data type. The default for a descending sequence is -1.
+    ///     The maximum value for the sequence.
+    ///     The default for an ascending sequence is the maximum value of the data type. The default for a descending sequence is -1.
     /// </param>
     /// <param name="cyclic">
-    /// Sets whether or not the sequence will start again from the beginning once the maximum value is reached.
-    /// Defaults to false.
+    ///     Sets whether or not the sequence will start again from the beginning once the maximum value is reached.
+    ///     Defaults to false.
     /// </param>
     /// <param name="numbersToCache">
-    /// Specifies how many sequence numbers are to be preallocated and stored in memory for faster access.
-    /// The minimum value is 1 (only one value can be generated at a time, i.e., no cache), and this is also the default.
+    ///     Specifies how many sequence numbers are to be pre0allocated and stored in memory for faster access.
+    ///     The minimum value is 1 (only one value can be generated at a time, i.e., no cache), and this is also the default.
     /// </param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public static PropertyBuilder HasIdentityOptions(
@@ -394,31 +497,31 @@ public static class KdbndpPropertyBuilderExtensions
     }
 
     /// <summary>
-    /// Sets the sequence options on an identity column.
-    /// The column must be set as identity via <see cref="UseIdentityColumn(PropertyBuilder)"/> or
-    /// <see cref="UseIdentityAlwaysColumn(PropertyBuilder)"/>.
+    ///     Sets the sequence options on an identity column. The column must be set as identity via
+    ///     <see cref="UseIdentityColumn(PropertyBuilder)" /> or <see cref="UseIdentityAlwaysColumn(PropertyBuilder)" />.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="startValue">
-    /// The starting value for the sequence.
-    /// The default starting value is <see cref="minValue"/> for ascending sequences and <see cref="maxValue"/> for descending ones.
+    ///     The starting value for the sequence.
+    ///     The default starting value is <paramref name="minValue" /> for ascending sequences and <paramref name="maxValue" /> for descending
+    ///     ones.
     /// </param>
     /// <param name="incrementBy">The amount to increment between values. Defaults to 1.</param>
     /// <param name="minValue">
-    /// The minimum value for the sequence.
-    /// The default for an ascending sequence is 1. The default for a descending sequence is the minimum value of the data type.
+    ///     The minimum value for the sequence.
+    ///     The default for an ascending sequence is 1. The default for a descending sequence is the minimum value of the data type.
     /// </param>
     /// <param name="maxValue">
-    /// The maximum value for the sequence.
-    /// The default for an ascending sequence is the maximum value of the data type. The default for a descending sequence is -1.
+    ///     The maximum value for the sequence.
+    ///     The default for an ascending sequence is the maximum value of the data type. The default for a descending sequence is -1.
     /// </param>
     /// <param name="cyclic">
-    /// Sets whether or not the sequence will start again from the beginning once the maximum value is reached.
-    /// Defaults to false.
+    ///     Sets whether or not the sequence will start again from the beginning once the maximum value is reached.
+    ///     Defaults to false.
     /// </param>
     /// <param name="numbersToCache">
-    /// Specifies how many sequence numbers are to be preallocated and stored in memory for faster access.
-    /// The minimum value is 1 (only one value can be generated at a time, i.e., no cache), and this is also the default.
+    ///     Specifies how many sequence numbers are to be pre-allocated and stored in memory for faster access.
+    ///     The minimum value is 1 (only one value can be generated at a time, i.e., no cache), and this is also the default.
     /// </param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public static PropertyBuilder<TProperty> HasIdentityOptions<TProperty>(
@@ -433,31 +536,31 @@ public static class KdbndpPropertyBuilderExtensions
             (PropertyBuilder)propertyBuilder, startValue, incrementBy, minValue, maxValue, cyclic, numbersToCache);
 
     /// <summary>
-    /// Sets the sequence options on an identity column.
-    /// The column must be set as identity via <see cref="UseIdentityColumn(PropertyBuilder)"/> or
-    /// <see cref="UseIdentityAlwaysColumn(PropertyBuilder)"/>.
+    ///     Sets the sequence options on an identity column. The column must be set as identity via
+    ///     <see cref="UseIdentityColumn(PropertyBuilder)" /> or <see cref="UseIdentityAlwaysColumn(PropertyBuilder)" />.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="startValue">
-    /// The starting value for the sequence.
-    /// The default starting value is <see cref="minValue"/> for ascending sequences and <see cref="maxValue"/> for descending ones.
+    ///     The starting value for the sequence.
+    ///     The default starting value is <paramref name="minValue" /> for ascending sequences and <paramref name="maxValue" /> for descending
+    ///     ones.
     /// </param>
     /// <param name="incrementBy">The amount to increment between values. Defaults to 1.</param>
     /// <param name="minValue">
-    /// The minimum value for the sequence.
-    /// The default for an ascending sequence is 1. The default for a descending sequence is the minimum value of the data type.
+    ///     The minimum value for the sequence.
+    ///     The default for an ascending sequence is 1. The default for a descending sequence is the minimum value of the data type.
     /// </param>
     /// <param name="maxValue">
-    /// The maximum value for the sequence.
-    /// The default for an ascending sequence is the maximum value of the data type. The default for a descending sequence is -1.
+    ///     The maximum value for the sequence.
+    ///     The default for an ascending sequence is the maximum value of the data type. The default for a descending sequence is -1.
     /// </param>
     /// <param name="cyclic">
-    /// Sets whether or not the sequence will start again from the beginning once the maximum value is reached.
-    /// Defaults to false.
+    ///     Sets whether or not the sequence will start again from the beginning once the maximum value is reached.
+    ///     Defaults to false.
     /// </param>
     /// <param name="numbersToCache">
-    /// Specifies how many sequence numbers are to be preallocated and stored in memory for faster access.
-    /// The minimum value is 1 (only one value can be generated at a time, i.e., no cache), and this is also the default.
+    ///     Specifies how many sequence numbers are to be pre-allocated and stored in memory for faster access.
+    ///     The minimum value is 1 (only one value can be generated at a time, i.e., no cache), and this is also the default.
     /// </param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public static IConventionPropertyBuilder? HasIdentityOptions(
@@ -485,29 +588,29 @@ public static class KdbndpPropertyBuilderExtensions
     }
 
     /// <summary>
-    /// Returns a value indicating whether the sequence options can be set on the identity column.
+    ///     Returns a value indicating whether the sequence options can be set on the identity column.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="startValue">
-    /// The starting value for the sequence.
-    /// The default starting value is <see cref="minValue"/> for ascending sequences and <see cref="maxValue"/> for descending ones.
+    ///     The starting value for the sequence. The default starting value is <paramref name="minValue" /> for ascending sequences and
+    ///     <paramref name="maxValue" /> for descending ones.
     /// </param>
     /// <param name="incrementBy">The amount to increment between values. Defaults to 1.</param>
     /// <param name="minValue">
-    /// The minimum value for the sequence.
-    /// The default for an ascending sequence is 1. The default for a descending sequence is the minimum value of the data type.
+    ///     The minimum value for the sequence.
+    ///     The default for an ascending sequence is 1. The default for a descending sequence is the minimum value of the data type.
     /// </param>
     /// <param name="maxValue">
-    /// The maximum value for the sequence.
-    /// The default for an ascending sequence is the maximum value of the data type. The default for a descending sequence is -1.
+    ///     The maximum value for the sequence.
+    ///     The default for an ascending sequence is the maximum value of the data type. The default for a descending sequence is -1.
     /// </param>
     /// <param name="cyclic">
-    /// Sets whether or not the sequence will start again from the beginning once the maximum value is reached.
-    /// Defaults to false.
+    ///     Sets whether or not the sequence will start again from the beginning once the maximum value is reached.
+    ///     Defaults to false.
     /// </param>
     /// <param name="numbersToCache">
-    /// Specifies how many sequence numbers are to be preallocated and stored in memory for faster access.
-    /// The minimum value is 1 (only one value can be generated at a time, i.e., no cache), and this is also the default.
+    ///     Specifies how many sequence numbers are to be pre-allocated and stored in memory for faster access.
+    ///     The minimum value is 1 (only one value can be generated at a time, i.e., no cache), and this is also the default.
     /// </param>
     /// <returns>The same builder instance so that multiple calls can be chained.</returns>
     public static bool CanSetIdentityOptions(
@@ -538,34 +641,55 @@ public static class KdbndpPropertyBuilderExtensions
 
     #region Array value conversion
 
+    /// <summary>
+    ///     Configures a KingbaseES array conversion.
+    /// </summary>
+    [Obsolete(
+        "HasPostgresArrayConversion has been replaced with the standard EF 8 primitive collection API, see https://www.Kdbndp.org/efcore/release-notes/8.0.html",
+        error: true)]
     public static PropertyBuilder<TElementProperty[]> HasPostgresArrayConversion<TElementProperty, TElementProvider>(
         this PropertyBuilder<TElementProperty[]> propertyBuilder,
         Expression<Func<TElementProperty, TElementProvider>> convertToProviderExpression,
         Expression<Func<TElementProvider, TElementProperty>> convertFromProviderExpression)
-        => propertyBuilder.HasPostgresArrayConversion<TElementProperty, TElementProvider>(
-            new ValueConverter<TElementProperty, TElementProvider>(
-                convertToProviderExpression, convertFromProviderExpression));
+        => throw new NotSupportedException(
+            "HasPostgresArrayConversion has been replaced with the standard EF 8 primitive collection API, see https://www.Kdbndp.org/efcore/release-notes/8.0.html");
 
+    /// <summary>
+    ///     Configures a KingbaseES array conversion.
+    /// </summary>
+    [Obsolete(
+        "HasPostgresArrayConversion has been replaced with the standard EF 8 primitive collection API, see https://www.Kdbndp.org/efcore/release-notes/8.0.html",
+        error: true)]
     public static PropertyBuilder<List<TElementProperty>> HasPostgresArrayConversion<TElementProperty, TElementProvider>(
         this PropertyBuilder<List<TElementProperty>> propertyBuilder,
         Expression<Func<TElementProperty, TElementProvider>> convertToProviderExpression,
         Expression<Func<TElementProvider, TElementProperty>> convertFromProviderExpression)
-        => propertyBuilder.HasConversion(
-            new KdbndpArrayConverter<List<TElementProperty>, List<TElementProvider>>(
-                new ValueConverter<TElementProperty, TElementProvider>(
-                    convertToProviderExpression, convertFromProviderExpression)));
+        => throw new NotSupportedException(
+            "HasPostgresArrayConversion has been replaced with the standard EF 8 primitive collection API, see https://www.Kdbndp.org/efcore/release-notes/8.0.html");
 
+    /// <summary>
+    ///     Configures a KingbaseES array conversion.
+    /// </summary>
+    [Obsolete(
+        "HasPostgresArrayConversion has been replaced with the standard EF 8 primitive collection API, see https://www.Kdbndp.org/efcore/release-notes/8.0.html",
+        error: true)]
     public static PropertyBuilder<TElementProperty[]> HasPostgresArrayConversion<TElementProperty, TElementProvider>(
         this PropertyBuilder<TElementProperty[]> propertyBuilder,
         ValueConverter elementValueConverter)
-        => propertyBuilder.HasConversion(
-            new KdbndpArrayConverter<TElementProperty[], TElementProvider[]>(elementValueConverter));
+        => throw new NotSupportedException(
+            "HasPostgresArrayConversion has been replaced with the standard EF 8 primitive collection API, see https://www.Kdbndp.org/efcore/release-notes/8.0.html");
 
+    /// <summary>
+    ///     Configures a KingbaseES array conversion.
+    /// </summary>
+    [Obsolete(
+        "HasPostgresArrayConversion has been replaced with the standard EF 8 primitive collection API, see https://www.Kdbndp.org/efcore/release-notes/8.0.html",
+        error: true)]
     public static PropertyBuilder<List<TElementProperty>> HasPostgresArrayConversion<TElementProperty, TElementProvider>(
         this PropertyBuilder<List<TElementProperty>> propertyBuilder,
         ValueConverter elementValueConverter)
-        => propertyBuilder.HasConversion(
-            new KdbndpArrayConverter<List<TElementProperty>, List<TElementProvider>>(elementValueConverter));
+        => throw new NotSupportedException(
+            "HasPostgresArrayConversion has been replaced with the standard EF 8 primitive collection API, see https://www.Kdbndp.org/efcore/release-notes/8.0.html");
 
     #endregion Array value conversion
 
@@ -574,17 +698,17 @@ public static class KdbndpPropertyBuilderExtensions
     // Note: tsvector properties can be configured with a generic API through the entity type builder
 
     /// <summary>
-    /// Configures the property to be a full-text search tsvector column over the given properties.
+    ///     Configures the property to be a full-text search tsvector column over the given properties.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="config">
-    /// <para>
-    /// The text search configuration for this generated tsvector property, or <c>null</c> if this is not a
-    /// generated tsvector property.
-    /// </para>
-    /// <para>
-    /// See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
-    /// </para>
+    ///     <para>
+    ///         The text search configuration for this generated tsvector property, or <c>null</c> if this is not a
+    ///         generated tsvector property.
+    ///     </para>
+    ///     <para>
+    ///         See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
+    ///     </para>
     /// </param>
     /// <param name="includedPropertyNames">An array of property names to be included in the tsvector.</param>
     /// <returns>A builder to further configure the property.</returns>
@@ -605,17 +729,17 @@ public static class KdbndpPropertyBuilderExtensions
     }
 
     /// <summary>
-    /// Configures the property to be a full-text search tsvector column over the given properties.
+    ///     Configures the property to be a full-text search tsvector column over the given properties.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="config">
-    /// <para>
-    /// The text search configuration for this generated tsvector property, or <c>null</c> if this is not a
-    /// generated tsvector property.
-    /// </para>
-    /// <para>
-    /// See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
-    /// </para>
+    ///     <para>
+    ///         The text search configuration for this generated tsvector property, or <c>null</c> if this is not a
+    ///         generated tsvector property.
+    ///     </para>
+    ///     <para>
+    ///         See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
+    ///     </para>
     /// </param>
     /// <param name="includedPropertyNames">An array of property names to be included in the tsvector.</param>
     /// <returns>A builder to further configure the property.</returns>
@@ -626,22 +750,22 @@ public static class KdbndpPropertyBuilderExtensions
         => (PropertyBuilder<KdbndpTsVector>)IsGeneratedTsVectorColumn((PropertyBuilder)propertyBuilder, config, includedPropertyNames);
 
     /// <summary>
-    /// Configures the property to be a full-text search tsvector column over the given properties.
+    ///     Configures the property to be a full-text search tsvector column over the given properties.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="config">
-    /// <para>
-    /// The text search configuration for this generated tsvector property.
-    /// </para>
-    /// <para>
-    /// See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
-    /// </para>
+    ///     <para>
+    ///         The text search configuration for this generated tsvector property.
+    ///     </para>
+    ///     <para>
+    ///         See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
+    ///     </para>
     /// </param>
     /// <param name="includedPropertyNames">An array of property names to be included in the tsvector.</param>
     /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
     /// <returns>
-    /// The same builder instance if the configuration was applied,
-    /// <c>null</c> otherwise.
+    ///     The same builder instance if the configuration was applied,
+    ///     <c>null</c> otherwise.
     /// </returns>
     public static IConventionPropertyBuilder? IsGeneratedTsVectorColumn(
         this IConventionPropertyBuilder propertyBuilder,
@@ -664,17 +788,17 @@ public static class KdbndpPropertyBuilderExtensions
     }
 
     /// <summary>
-    /// Returns a value indicating whether the property can be configured as a full-text search tsvector column.
+    ///     Returns a value indicating whether the property can be configured as a full-text search tsvector column.
     /// </summary>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
     /// <param name="config">
-    /// <para>
-    /// The text search configuration for this generated tsvector property, or <c>null</c> if this is not a
-    /// generated tsvector property.
-    /// </para>
-    /// <para>
-    /// See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
-    /// </para>
+    ///     <para>
+    ///         The text search configuration for this generated tsvector property, or <c>null</c> if this is not a
+    ///         generated tsvector property.
+    ///     </para>
+    ///     <para>
+    ///         See https://www.KingbaseES.org/docs/current/textsearch-controls.html for more information.
+    ///     </para>
     /// </param>
     /// <param name="includedPropertyNames">An array of property names to be included in the tsvector.</param>
     /// <param name="fromDataAnnotation">Indicates whether the configuration was specified using a data annotation.</param>
@@ -688,12 +812,11 @@ public static class KdbndpPropertyBuilderExtensions
         Check.NotNull(propertyBuilder, nameof(propertyBuilder));
 
         return (fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention)
-            .Overrides(propertyBuilder.Metadata.GetTsVectorConfigConfigurationSource()) &&
-            (fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention)
+            .Overrides(propertyBuilder.Metadata.GetTsVectorConfigConfigurationSource())
+            && (fromDataAnnotation ? ConfigurationSource.DataAnnotation : ConfigurationSource.Convention)
             .Overrides(propertyBuilder.Metadata.GetTsVectorPropertiesConfigurationSource())
-            ||
-            config == propertyBuilder.Metadata.GetTsVectorConfig() &&
-            StructuralComparisons.StructuralEqualityComparer.Equals(
+            || config == propertyBuilder.Metadata.GetTsVectorConfig()
+            && StructuralComparisons.StructuralEqualityComparer.Equals(
                 includedPropertyNames, propertyBuilder.Metadata.GetTsVectorProperties());
     }
 
@@ -702,7 +825,7 @@ public static class KdbndpPropertyBuilderExtensions
     #region Compression method
 
     /// <summary>
-    /// Sets the compression method for the column.
+    ///     Sets the compression method for the column.
     /// </summary>
     /// <remarks>This feature was introduced in KingbaseES 14.</remarks>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
@@ -721,7 +844,7 @@ public static class KdbndpPropertyBuilderExtensions
     }
 
     /// <summary>
-    /// Sets the compression method for the column.
+    ///     Sets the compression method for the column.
     /// </summary>
     /// <remarks>This feature was introduced in KingbaseES 14.</remarks>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
@@ -733,7 +856,7 @@ public static class KdbndpPropertyBuilderExtensions
         => (PropertyBuilder<TEntity>)UseCompressionMethod((PropertyBuilder)propertyBuilder, compressionMethod);
 
     /// <summary>
-    /// Sets the compression method for the column.
+    ///     Sets the compression method for the column.
     /// </summary>
     /// <remarks>This feature was introduced in KingbaseES 14.</remarks>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>
@@ -756,7 +879,7 @@ public static class KdbndpPropertyBuilderExtensions
     }
 
     /// <summary>
-    /// Whether the compression method for the column can be set.
+    ///     Whether the compression method for the column can be set.
     /// </summary>
     /// <remarks>This feature was introduced in KingbaseES 14.</remarks>
     /// <param name="propertyBuilder">The builder for the property being configured.</param>

@@ -1,25 +1,25 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpJsonDomTranslator : IMemberTranslator, IMethodCallTranslator
 {
     private static readonly MemberInfo RootElement = typeof(JsonDocument).GetProperty(nameof(JsonDocument.RootElement))!;
-    private static readonly MethodInfo GetProperty = typeof(JsonElement).GetRuntimeMethod(nameof(JsonElement.GetProperty), new[] { typeof(string) })!;
-    private static readonly MethodInfo GetArrayLength = typeof(JsonElement).GetRuntimeMethod(nameof(JsonElement.GetArrayLength), Type.EmptyTypes)!;
+
+    private static readonly MethodInfo GetProperty = typeof(JsonElement).GetRuntimeMethod(
+        nameof(JsonElement.GetProperty), new[] { typeof(string) })!;
+
+    private static readonly MethodInfo GetArrayLength = typeof(JsonElement).GetRuntimeMethod(
+        nameof(JsonElement.GetArrayLength), Type.EmptyTypes)!;
 
     private static readonly MethodInfo ArrayIndexer = typeof(JsonElement).GetProperties()
         .Single(p => p.GetIndexParameters().Length == 1 && p.GetIndexParameters()[0].ParameterType == typeof(int))
@@ -45,6 +45,12 @@ public class KdbndpJsonDomTranslator : IMemberTranslator, IMethodCallTranslator
     private readonly RelationalTypeMapping _stringTypeMapping;
     private readonly IModel _model;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpJsonDomTranslator(
         IRelationalTypeMappingSource typeMappingSource,
         KdbndpSqlExpressionFactory sqlExpressionFactory,
@@ -56,7 +62,14 @@ public class KdbndpJsonDomTranslator : IMemberTranslator, IMethodCallTranslator
         _stringTypeMapping = typeMappingSource.FindMapping(typeof(string), model)!;
     }
 
-    public virtual SqlExpression? Translate(SqlExpression? instance,
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual SqlExpression? Translate(
+        SqlExpression? instance,
         MemberInfo member,
         Type returnType,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
@@ -66,9 +79,7 @@ public class KdbndpJsonDomTranslator : IMemberTranslator, IMethodCallTranslator
             return null;
         }
 
-        if (member == RootElement &&
-            instance is ColumnExpression column &&
-            column.TypeMapping is KdbndpJsonTypeMapping)
+        if (member == RootElement && instance is ColumnExpression { TypeMapping: KdbndpJsonTypeMapping } column)
         {
             // Simply get rid of the RootElement member access
             return column;
@@ -77,14 +88,19 @@ public class KdbndpJsonDomTranslator : IMemberTranslator, IMethodCallTranslator
         return null;
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual SqlExpression? Translate(
         SqlExpression? instance,
         MethodInfo method,
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        if (method.DeclaringType != typeof(JsonElement) ||
-            instance?.TypeMapping is not KdbndpJsonTypeMapping mapping)
+        if (method.DeclaringType != typeof(JsonElement) || instance?.TypeMapping is not KdbndpJsonTypeMapping mapping)
         {
             return null;
         }
@@ -100,16 +116,14 @@ public class KdbndpJsonDomTranslator : IMemberTranslator, IMethodCallTranslator
 
         if (method == GetProperty || method == ArrayIndexer)
         {
-            return instance is PostgresJsonTraversalExpression prevPathTraversal
+            return instance is PgJsonTraversalExpression prevPathTraversal
                 ? prevPathTraversal.Append(_sqlExpressionFactory.ApplyDefaultTypeMapping(arguments[0]))
                 : null;
         }
 
-        if (GetMethods.Contains(method.Name) &&
-            arguments.Count == 0 &&
-            instance is PostgresJsonTraversalExpression traversal)
+        if (GetMethods.Contains(method.Name) && arguments.Count == 0 && instance is PgJsonTraversalExpression traversal)
         {
-            var traversalToText = new PostgresJsonTraversalExpression(
+            var traversalToText = new PgJsonTraversalExpression(
                 traversal.Expression,
                 traversal.Path,
                 returnsText: true,

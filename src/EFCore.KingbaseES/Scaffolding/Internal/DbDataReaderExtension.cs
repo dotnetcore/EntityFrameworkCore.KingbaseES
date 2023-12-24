@@ -1,5 +1,4 @@
 ﻿using System.Data.Common;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Scaffolding.Internal;

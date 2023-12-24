@@ -1,9 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.ValueGeneration;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal;
+﻿using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.ValueGeneration.Internal;
 

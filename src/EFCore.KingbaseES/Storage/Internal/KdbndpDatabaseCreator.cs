@@ -1,26 +1,26 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Transactions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using Microsoft.EntityFrameworkCore.Storage;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Migrations.Operations;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpDatabaseCreator : RelationalDatabaseCreator
 {
     private readonly IKdbndpRelationalConnection _connection;
     private readonly IRawSqlCommandBuilder _rawSqlCommandBuilder;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpDatabaseCreator(
         RelationalDatabaseCreatorDependencies dependencies,
         IKdbndpRelationalConnection connection,
@@ -31,22 +31,38 @@ public class KdbndpDatabaseCreator : RelationalDatabaseCreator
         _rawSqlCommandBuilder = rawSqlCommandBuilder;
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual TimeSpan RetryDelay { get; set; } = TimeSpan.FromMilliseconds(500);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual TimeSpan RetryTimeout { get; set; } = TimeSpan.FromMinutes(1);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override void Create()
     {
-        using (var masterConnection = _connection.CreateMasterConnection())
+        using (var masterConnection = _connection.CreateAdminConnection())
         {
             try
             {
                 Dependencies.MigrationCommandExecutor
                     .ExecuteNonQuery(CreateCreateOperations(), masterConnection);
             }
-            catch (KingbaseException e) when (
-                e.SqlState == "23505" && e.ConstraintName == "sys_database_datname_index"
-            )
+            catch (KdbndpException e) when (e is { SqlState: "23505"})
             {
                 // This occurs when two connections are trying to create the same database concurrently
                 // (happens in the tests). Simply ignore the error.
@@ -58,9 +74,16 @@ public class KdbndpDatabaseCreator : RelationalDatabaseCreator
         Exists();
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override async Task CreateAsync(CancellationToken cancellationToken = default)
     {
-        using (var masterConnection = _connection.CreateMasterConnection())
+        var masterConnection = _connection.CreateAdminConnection();
+        await using (masterConnection.ConfigureAwait(false))
         {
             try
             {
@@ -68,9 +91,7 @@ public class KdbndpDatabaseCreator : RelationalDatabaseCreator
                     .ExecuteNonQueryAsync(CreateCreateOperations(), masterConnection, cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (KingbaseException e) when (
-                e.SqlState == "23505" && e.ConstraintName == "sys_database_datname_index"
-            )
+            catch (KdbndpException e) when (e is { SqlState: "23505"})
             {
                 // This occurs when two connections are trying to create the same database concurrently
                 // (happens in the tests). Simply ignore the error.
@@ -82,6 +103,12 @@ public class KdbndpDatabaseCreator : RelationalDatabaseCreator
         await ExistsAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override bool HasTables()
         => Dependencies.ExecutionStrategy
             .Execute(
@@ -95,6 +122,12 @@ public class KdbndpDatabaseCreator : RelationalDatabaseCreator
                             Dependencies.CurrentContext.Context,
                             Dependencies.CommandLogger))!);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override Task<bool> HasTablesAsync(CancellationToken cancellationToken = default)
         => Dependencies.ExecutionStrategy.ExecuteAsync(
             _connection,
@@ -110,25 +143,27 @@ public class KdbndpDatabaseCreator : RelationalDatabaseCreator
 
     private IRelationalCommand CreateHasTablesCommand()
         => _rawSqlCommandBuilder
-            .Build(@"
+            .Build(
+                """
 SELECT CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END
-FROM sys_class AS cls
-JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
+FROM pg_class AS cls
+JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
 WHERE
         cls.relkind IN ('r', 'v', 'm', 'f', 'p') AND
-        ns.nspname NOT IN ('sys_catalog', 'information_schema') AND
+        ns.nspname NOT IN ('pg_catalog', 'information_schema') AND
         -- Exclude tables which are members of PG extensions
         NOT EXISTS (
-            SELECT 1 FROM sys_depend WHERE
+            SELECT 1 FROM pg_depend WHERE
                 classid=(
                     SELECT cls.oid
-                    FROM sys_class AS cls
-                             JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
-                    WHERE relname='sys_class' AND ns.nspname='sys_catalog'
+                    FROM pg_class AS cls
+                             JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+                    WHERE relname='pg_class' AND ns.nspname='pg_catalog'
                 ) AND
                 objid=cls.oid AND
                 deptype IN ('e', 'x')
-        )");
+        )
+""");
 
     private IReadOnlyList<MigrationCommand> CreateCreateOperations()
     {
@@ -147,9 +182,21 @@ WHERE
             });
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override bool Exists()
         => Exists(async: false).GetAwaiter().GetResult();
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override Task<bool> ExistsAsync(CancellationToken cancellationToken = default)
         => Exists(async: true, cancellationToken);
 
@@ -159,10 +206,7 @@ WHERE
         // attempt to reuse a pooled connection, which may be broken (this happened in the tests).
         // If Pooling is off, but Multiplexing is on - KdbndpConnectionStringBuilder.Validate will throw,
         // so we turn off Multiplexing as well.
-        var unpooledCsb = new KdbndpConnectionStringBuilder(_connection.ConnectionString)
-        {
-            Pooling = false
-        };
+        var unpooledCsb = new KdbndpConnectionStringBuilder(_connection.ConnectionString) { Pooling = false, Multiplexing = false };
 
         using var _ = new TransactionScope(TransactionScopeOption.Suppress, TransactionScopeAsyncFlowOption.Enabled);
         var unpooledRelationalConnection = _connection.CloneWith(unpooledCsb.ToString());
@@ -180,7 +224,7 @@ WHERE
 
             return true;
         }
-        catch (KingbaseException e)
+        catch (KdbndpException e)
         {
             if (IsDoesNotExist(e))
             {
@@ -189,11 +233,14 @@ WHERE
 
             throw;
         }
-        catch (KdbndpException e) when (
-            e.InnerException is IOException &&
-            e.InnerException.InnerException is SocketException socketException &&
-            socketException.SocketErrorCode == SocketError.ConnectionReset
-        )
+        catch (Exception e) when (
+            // This can happen when Kdbndp attempts to connect to multiple hosts
+            e.InnerException is AggregateException ae && ae.InnerExceptions.Any(ie => ie is KdbndpException pe && IsDoesNotExist(pe)))
+        {
+            return false;
+        }
+        catch (Exception e) when (
+            e.InnerException is IOException { InnerException: SocketException { SocketErrorCode: SocketError.ConnectionReset } })
         {
             // Pretty awful hack around #104
             return false;
@@ -214,24 +261,38 @@ WHERE
     }
 
     // Login failed is thrown when database does not exist (See Issue #776)
-    private static bool IsDoesNotExist(KingbaseException exception) => exception.SqlState == "3D000";
+    private static bool IsDoesNotExist(KdbndpException exception)
+        => exception.SqlState == "3D000";
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override void Delete()
     {
         ClearAllPools();
 
-        using (var masterConnection = _connection.CreateMasterConnection())
+        using (var masterConnection = _connection.CreateAdminConnection())
         {
             Dependencies.MigrationCommandExecutor
                 .ExecuteNonQuery(CreateDropCommands(), masterConnection);
         }
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override async Task DeleteAsync(CancellationToken cancellationToken = default)
     {
         ClearAllPools();
 
-        using (var masterConnection = _connection.CreateMasterConnection())
+        var masterConnection = _connection.CreateAdminConnection();
+        await using (masterConnection)
         {
             await Dependencies.MigrationCommandExecutor
                 .ExecuteNonQueryAsync(CreateDropCommands(), masterConnection, cancellationToken)
@@ -239,6 +300,12 @@ WHERE
         }
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override void CreateTables()
     {
         var designTimeModel = Dependencies.CurrentContext.Context.GetService<IDesignTimeModel>().Model;
@@ -248,75 +315,72 @@ WHERE
         // If a KingbaseES extension, enum or range was added, we want Kdbndp to reload all types at the ADO.NET level.
         var reloadTypes =
             operations.OfType<AlterDatabaseOperation>()
-                .Any(o =>
-                    o.GetPostgresExtensions().Any() ||
-                    o.GetPostgresEnums().Any() ||
-                    o.GetPostgresRanges().Any());
+                .Any(
+                    o =>
+                        o.GetPostgresExtensions().Any() || o.GetPostgresEnums().Any() || o.GetPostgresRanges().Any());
 
         try
         {
             Dependencies.MigrationCommandExecutor.ExecuteNonQuery(commands, _connection);
         }
-        catch (KingbaseException e) when (
-            e.SqlState == "23505" && e.ConstraintName == "sys_type_typname_nsp_index"
-        )
+        catch (KdbndpException e) when (e is { SqlState: "23505"})
         {
             // This occurs when two connections are trying to create the same database concurrently
             // (happens in the tests). Simply ignore the error.
         }
 
-        if (reloadTypes)
+        if (reloadTypes && _connection.DbConnection is KdbndpConnection KdbndpConnection)
         {
-            _connection.Open();
+            KdbndpConnection.Open();
             try
             {
-                ((KdbndpConnection)_connection.DbConnection).ReloadTypes();
+                KdbndpConnection.ReloadTypes();
             }
             catch
             {
-                _connection.Close();
+                KdbndpConnection.Close();
             }
         }
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override async Task CreateTablesAsync(CancellationToken cancellationToken = default)
     {
         var designTimeModel = Dependencies.CurrentContext.Context.GetService<IDesignTimeModel>().Model;
         var operations = Dependencies.ModelDiffer.GetDifferences(null, designTimeModel.GetRelationalModel());
         var commands = Dependencies.MigrationsSqlGenerator.Generate(operations, designTimeModel);
 
-        // If a KingbaseES extension, enum or range was added, we want Kdbndp to reload all types at the ADO.NET level.
-        var reloadTypes =
-            operations.OfType<AlterDatabaseOperation>()
-                .Any(o =>
-                    o.GetPostgresExtensions().Any() ||
-                    o.GetPostgresEnums().Any() ||
-                    o.GetPostgresRanges().Any());
-
         try
         {
             await Dependencies.MigrationCommandExecutor.ExecuteNonQueryAsync(commands, _connection, cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (KingbaseException e) when (
-            e.SqlState == "23505" && e.ConstraintName == "sys_type_typname_nsp_index"
-        )
+        catch (KdbndpException e) when (e is { SqlState: "23505" })
         {
             // This occurs when two connections are trying to create the same database concurrently
             // (happens in the tests). Simply ignore the error.
         }
 
-        if (reloadTypes)
+        // If a KingbaseES extension, enum or range was added, we want Kdbndp to reload all types at the ADO.NET level.
+        var reloadTypes = operations
+            .OfType<AlterDatabaseOperation>()
+            .Any(o => o.GetPostgresExtensions().Any() || o.GetPostgresEnums().Any() || o.GetPostgresRanges().Any());
+
+        if (reloadTypes && _connection.DbConnection is KdbndpConnection kdbndpConnection)
         {
-            await _connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            await kdbndpConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                // TODO: Not async
-                ((KdbndpConnection)_connection.DbConnection).ReloadTypes();
+                kdbndpConnection.ReloadTypes();
             }
             catch
             {
-                _connection.Close();
+                await kdbndpConnection.CloseAsync().ConfigureAwait(false);
             }
         }
     }
@@ -334,9 +398,11 @@ WHERE
     }
 
     // Clear connection pools in case there are active connections that are pooled
-    private static void ClearAllPools() => KdbndpConnection.ClearAllPools();
+    private static void ClearAllPools()
+        => KdbndpConnection.ClearAllPools();
 
     // Clear connection pool for the database connection since after the 'create database' call, a previously
     // invalid connection may now be valid.
-    private void ClearPool() => KdbndpConnection.ClearPool((KdbndpConnection)_connection.DbConnection);
+    private void ClearPool()
+        => KdbndpConnection.ClearPool((KdbndpConnection)_connection.DbConnection);
 }

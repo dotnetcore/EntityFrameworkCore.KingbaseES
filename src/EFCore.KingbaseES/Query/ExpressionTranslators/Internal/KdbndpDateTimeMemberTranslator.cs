@@ -1,33 +1,32 @@
-using System;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
+﻿using System.Diagnostics.CodeAnalysis;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal;
-using KdbndpTypes;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
 /// <summary>
-/// Provides translation services for <see cref="DateTime"/> members.
+///     Provides translation services for <see cref="DateTime" /> members.
 /// </summary>
 /// <remarks>
-/// See: https://www.KingbaseES.org/docs/current/static/functions-datetime.html
+///     See: https://www.KingbaseES.org/docs/current/static/functions-datetime.html
 /// </remarks>
 public class KdbndpDateTimeMemberTranslator : IMemberTranslator
 {
+    private readonly IRelationalTypeMappingSource _typeMappingSource;
     private readonly KdbndpSqlExpressionFactory _sqlExpressionFactory;
     private readonly RelationalTypeMapping _timestampMapping;
     private readonly RelationalTypeMapping _timestampTzMapping;
 
-    public KdbndpDateTimeMemberTranslator(
-        IRelationalTypeMappingSource typeMappingSource,
-        KdbndpSqlExpressionFactory sqlExpressionFactory)
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public KdbndpDateTimeMemberTranslator(IRelationalTypeMappingSource typeMappingSource, KdbndpSqlExpressionFactory sqlExpressionFactory)
     {
+        _typeMappingSource = typeMappingSource;
         _timestampMapping = typeMappingSource.FindMapping("timestamp without time zone")!;
         _timestampTzMapping = typeMappingSource.FindMapping("timestamp with time zone")!;
         _sqlExpressionFactory = sqlExpressionFactory;
@@ -40,23 +39,19 @@ public class KdbndpDateTimeMemberTranslator : IMemberTranslator
         Type returnType,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        var type = member.DeclaringType;
+        var declaringType = member.DeclaringType;
 
-        if (type != typeof(DateTime)
-            && type != typeof(DateTimeOffset)
-            && type != typeof(DateOnly)
-            && type != typeof(TimeOnly)
-#pragma warning disable 618 // KdbndpDateTime and KdbndpDate have been obsoleted
-            && type != typeof(KdbndpDateTime)
-            && type != typeof(KdbndpDate))
-#pragma warning restore 618
+        if (declaringType != typeof(DateTime)
+            && declaringType != typeof(DateTimeOffset)
+            && declaringType != typeof(DateOnly)
+            && declaringType != typeof(TimeOnly))
         {
             return null;
         }
 
-        if (type == typeof(DateTimeOffset)
+        if (declaringType == typeof(DateTimeOffset)
             && instance is not null
-            && TranslateDateTimeOffset(instance, member, returnType) is { } translated)
+            && TranslateDateTimeOffset(instance, member) is { } translated)
         {
             return translated;
         }
@@ -69,19 +64,19 @@ public class KdbndpDateTimeMemberTranslator : IMemberTranslator
             // When given a timestamptz, date_trunc performs the truncation with respect to TimeZone; to avoid that, we use the overload
             // accepting a time zone, and pass UTC. For regular timestamp (or in legacy timestamp mode), we use the simpler overload without
             // a time zone.
-            switch (instance?.TypeMapping)
+            switch (instance)
             {
-                case KdbndpTimestampTypeMapping:
-                case KdbndpTimestampTzTypeMapping when KdbndpTypeMappingSource.LegacyTimestampBehavior:
+                case { TypeMapping: KdbndpTimestampTypeMapping }:
+                case { TypeMapping: KdbndpTimestampTzTypeMapping } when KdbndpTypeMappingSource.LegacyTimestampBehavior:
                     return _sqlExpressionFactory.Function(
                         "date_trunc",
-                        new[] { _sqlExpressionFactory.Constant("day"), instance! },
+                        new[] { _sqlExpressionFactory.Constant("day"), instance },
                         nullable: true,
                         argumentsPropagateNullability: TrueArrays[2],
                         returnType,
                         instance.TypeMapping);
 
-                case KdbndpTimestampTzTypeMapping:
+                case { TypeMapping: KdbndpTimestampTzTypeMapping }:
                     return _sqlExpressionFactory.Function(
                         "date_trunc",
                         new[] { _sqlExpressionFactory.Constant("day"), instance, _sqlExpressionFactory.Constant("UTC") },
@@ -90,8 +85,9 @@ public class KdbndpDateTimeMemberTranslator : IMemberTranslator
                         returnType,
                         instance.TypeMapping);
 
-                // If DateTime.Date is invoked on a KingbaseES date, simply no-op.
-                case KdbndpDateTypeMapping:
+                // If DateTime.Date is invoked on a KingbaseES date (or DateOnly, which can only be mapped to datE), simply no-op.
+                case { TypeMapping: KdbndpDateTimeDateTypeMapping }:
+                case { Type: var type } when type == typeof(DateOnly):
                     return instance;
 
                 default:
@@ -102,43 +98,46 @@ public class KdbndpDateTimeMemberTranslator : IMemberTranslator
         return member.Name switch
         {
             // Legacy behavior
-            nameof(DateTime.Now)    when KdbndpTypeMappingSource.LegacyTimestampBehavior
+            nameof(DateTime.Now) when KdbndpTypeMappingSource.LegacyTimestampBehavior
                 => UtcNow(),
             nameof(DateTime.UtcNow) when KdbndpTypeMappingSource.LegacyTimestampBehavior
                 => _sqlExpressionFactory.AtUtc(UtcNow()), // Return a UTC timestamp, but as timestamp without time zone
 
             // We support getting a local DateTime via DateTime.Now (based on PG TimeZone), but there's no way to get a non-UTC
             // DateTimeOffset.
-            nameof(DateTime.Now) => type == typeof(DateTimeOffset)
+            nameof(DateTime.Now) => declaringType == typeof(DateTimeOffset)
                 ? throw new InvalidOperationException("Cannot translate DateTimeOffset.Now - use UtcNow.")
                 : LocalNow(),
             nameof(DateTime.UtcNow) => UtcNow(),
 
             nameof(DateTime.Today) => _sqlExpressionFactory.Function(
                 "date_trunc",
-                new SqlExpression[] { _sqlExpressionFactory.Constant("day"), LocalNow() },
-                nullable: true,
-                argumentsPropagateNullability: TrueArrays[2],
-                returnType),
+                new[] { _sqlExpressionFactory.Constant("day"), LocalNow() },
+                nullable: false,
+                argumentsPropagateNullability: FalseArrays[2],
+                typeof(DateTime),
+                _timestampMapping),
 
-            nameof(DateTime.Year)      => GetDatePartExpression(instance!, "year"),
-            nameof(DateTime.Month)     => GetDatePartExpression(instance!, "month"),
-            nameof(DateTime.DayOfYear) => GetDatePartExpression(instance!, "doy"),
-            nameof(DateTime.Day)       => GetDatePartExpression(instance!, "day"),
-            nameof(DateTime.Hour)      => GetDatePartExpression(instance!, "hour"),
-            nameof(DateTime.Minute)    => GetDatePartExpression(instance!, "minute"),
-            nameof(DateTime.Second)    => GetDatePartExpression(instance!, "second"),
+            nameof(DateTime.Year) => DatePart(instance!, "year"),
+            nameof(DateTime.Month) => DatePart(instance!, "month"),
+            nameof(DateTime.DayOfYear) => DatePart(instance!, "doy"),
+            nameof(DateTime.Day) => DatePart(instance!, "day"),
+            nameof(DateTime.Hour) => DatePart(instance!, "hour"),
+            nameof(DateTime.Minute) => DatePart(instance!, "minute"),
+            nameof(DateTime.Second) => DatePart(instance!, "second"),
 
             nameof(DateTime.Millisecond) => null, // Too annoying
 
             // .NET's DayOfWeek is an enum, but its int values happen to correspond to KingbaseES
-            nameof(DateTime.DayOfWeek) => GetDatePartExpression(instance!, "dow", floor: true),
+            nameof(DateTime.DayOfWeek) => DatePart(instance!, "dow", floor: true),
 
-            // TODO: Technically possible simply via casting to PG time, should be better in EF Core 3.0
-            // but ExplicitCastExpression only allows casting to PG types that
-            // are default-mapped from CLR types (timespan maps to interval,
-            // which timestamp cannot be cast into)
-            nameof(DateTime.TimeOfDay) => null,
+            // Casting a timestamptz to time (to get the time component) converts it to a local timestamp based on TimeZone.
+            // Convert to a timestamp without time zone at UTC to get the right values.
+            nameof(DateTime.TimeOfDay) when TryConvertAwayFromTimestampTz(instance!, out var convertedInstance)
+                => _sqlExpressionFactory.Convert(
+                    convertedInstance,
+                    typeof(TimeSpan),
+                    _typeMappingSource.FindMapping(typeof(TimeSpan), storeTypeName: "time")),
 
             // TODO: Should be possible
             nameof(DateTime.Ticks) => null,
@@ -159,25 +158,21 @@ public class KdbndpDateTimeMemberTranslator : IMemberTranslator
             => _sqlExpressionFactory.Convert(UtcNow(), returnType, _timestampMapping);
     }
 
-    private SqlExpression GetDatePartExpression(
+    private SqlExpression? DatePart(
         SqlExpression instance,
         string partName,
         bool floor = false)
     {
-        if (instance.Type == typeof(DateTimeOffset))
+        // date_part exists only for timestamp without time zone, so if we pass in a timestamptz it gets converted to a local
+        // timestamp based on TimeZone. Convert to a timestamp without time zone at UTC to get the right values.
+        if (!TryConvertAwayFromTimestampTz(instance, out instance!))
         {
-            // date_part exists only for timestamp without time zone, so if we pass in a timestamptz it gets converted to a local
-            // timestamp based on TimeZone. Convert to a timestamp without time zone at UTC to get the right values.
-            instance = _sqlExpressionFactory.AtUtc(instance);
+            return null;
         }
 
         var result = _sqlExpressionFactory.Function(
             "date_part",
-            new[]
-            {
-                _sqlExpressionFactory.Constant(partName),
-                instance
-            },
+            new[] { _sqlExpressionFactory.Constant(partName), instance },
             nullable: true,
             argumentsPropagateNullability: TrueArrays[2],
             typeof(double));
@@ -195,10 +190,13 @@ public class KdbndpDateTimeMemberTranslator : IMemberTranslator
         return _sqlExpressionFactory.Convert(result, typeof(int));
     }
 
-    public virtual SqlExpression? TranslateDateTimeOffset(
-        SqlExpression instance,
-        MemberInfo member,
-        Type returnType)
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual SqlExpression? TranslateDateTimeOffset(SqlExpression instance, MemberInfo member)
         => member.Name switch
         {
             // We only support UTC DateTimeOffset, so DateTimeOffset.DateTime is just a matter of converting to timestamp without time zone
@@ -213,7 +211,9 @@ public class KdbndpDateTimeMemberTranslator : IMemberTranslator
 
             // In PG, date_trunc over timestamptz looks at TimeZone, and returns timestamptz. .NET DateTimeOffset.Date just returns the
             // date part (no conversion), and returns an Unspecified DateTime. So we first convert the timestamptz argument to timestamp
-            // via AT TIME ZONE 'UTC"
+            // via AT TIME ZONE 'UTC".
+            // Note that we don't use the overload of date_trunc that accepts a timezone as its 3rd argument (like we do for DateTime.Date),
+            // since that returns a timestamptz, but DateTimeOffset.Date should return DateTime with Kind=Unspecified
             nameof(DateTimeOffset.Date) =>
                 _sqlExpressionFactory.Function(
                     "date_trunc",
@@ -221,8 +221,42 @@ public class KdbndpDateTimeMemberTranslator : IMemberTranslator
                     nullable: true,
                     argumentsPropagateNullability: TrueArrays[2],
                     typeof(DateTime),
-                    _timestampTzMapping),
+                    _timestampMapping),
 
             _ => null
         };
+
+    // Various conversion functions translated here (date_part, ::time) exist only for timestamp without time zone, so if we pass in a
+    // timestamptz it gets implicitly converted to a local timestamp based on TimeZone; that's the wrong behavior (these conversions are not
+    // supposed to be sensitive to TimeZone).
+    // To avoid this, if we get a timestamptz, convert it to a timestamp without time zone (at UTC), which doesn't undergo any timezone
+    // conversions.
+    private bool TryConvertAwayFromTimestampTz(SqlExpression timestamp, [NotNullWhen(true)] out SqlExpression? result)
+    {
+        switch (timestamp)
+        {
+            // We're already dealing with a non-timestamptz mapping, no conversion needed.
+            case { TypeMapping: KdbndpTimestampTypeMapping or KdbndpDateTimeDateTypeMapping or KdbndpTimeTypeMapping }:
+            case { Type: var type } when type == typeof(DateOnly) || type == typeof(TimeOnly):
+                result = timestamp;
+                return true;
+
+            // In these cases we know that the expression represents a timestamptz; it's safe to convert to a timestamp without time zone.
+            // Note that timestamptz AT TIME ZONE 'UTC' returns the same timestamp but as a timestamp (without time zone).
+            case { TypeMapping: KdbndpTimestampTzTypeMapping }:
+            case { Type: var type } when type == typeof(DateTimeOffset):
+                result = _sqlExpressionFactory.AtUtc(timestamp);
+                return true;
+
+            // If it's a DateTime who's type mapping isn't known (parameter), we cannot ensure that a timestamp without time zone
+            // is returned (note that applying AT TIME ZONE 'UTC' on a timestamp without time zone would yield a timestamptz, which would
+            // again undergo timestamp conversion)
+            case { Type: var type } when type == typeof(DateTime):
+                result = null;
+                return false;
+
+            default:
+                throw new UnreachableException();
+        }
+    }
 }

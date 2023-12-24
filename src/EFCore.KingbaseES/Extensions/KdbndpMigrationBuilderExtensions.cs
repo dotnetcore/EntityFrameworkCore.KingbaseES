@@ -1,23 +1,33 @@
-using System;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using Microsoft.EntityFrameworkCore.Utilities;
-
 // ReSharper disable once CheckNamespace
+
 namespace Microsoft.EntityFrameworkCore;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public static class KdbndpMigrationBuilderExtensions
 {
     /// <summary>
-    /// Returns true if the active provider in a migration is the Kdbndp provider.
+    ///     Returns true if the active provider in a migration is the Kdbndp provider.
     /// </summary>
-    /// The migrationBuilder from the parameters on <see cref="Migration.Up(MigrationBuilder)" /> or
-    /// <see cref="Migration.Down(MigrationBuilder)" />.
+    /// The migrationBuilder from the parameters on
+    /// <see cref="Migration.Up(MigrationBuilder)" />
+    /// or
+    /// <see cref="Migration.Down(MigrationBuilder)" />
+    /// .
     /// <returns>True if Kdbndp is being used; false otherwise.</returns>
     public static bool IsKdbndp(this MigrationBuilder builder)
         => builder.ActiveProvider == typeof(KdbndpMigrationBuilderExtensions).GetTypeInfo().Assembly.GetName().Name;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public static MigrationBuilder EnsurePostgresExtension(
         this MigrationBuilder builder,
         string name,
@@ -35,6 +45,12 @@ public static class KdbndpMigrationBuilderExtensions
         return builder;
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     [Obsolete("Use EnsurePostgresExtension instead")]
     public static MigrationBuilder CreatePostgresExtension(
         this MigrationBuilder builder,
@@ -43,6 +59,12 @@ public static class KdbndpMigrationBuilderExtensions
         string? version = null)
         => EnsurePostgresExtension(builder, name, schema, version);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     [Obsolete("This no longer does anything and should be removed.")]
     public static MigrationBuilder DropPostgresExtension(
         this MigrationBuilder builder,

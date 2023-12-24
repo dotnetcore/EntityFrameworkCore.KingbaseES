@@ -1,25 +1,78 @@
 using System.Numerics;
-using Microsoft.EntityFrameworkCore.Storage;
-using KdbndpTypes;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpBigIntegerTypeMapping : KdbndpTypeMapping
 {
-    public KdbndpBigIntegerTypeMapping() : base("numeric", typeof(BigInteger), KdbndpDbType.Numeric) {}
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public static KdbndpBigIntegerTypeMapping Default { get; } = new();
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public KdbndpBigIntegerTypeMapping()
+        : base("numeric", typeof(BigInteger), KdbndpDbType.Numeric, jsonValueReaderWriter: JsonBigIntegerReaderWriter.Instance)
+    {
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected KdbndpBigIntegerTypeMapping(RelationalTypeMappingParameters parameters)
         : base(parameters, KdbndpDbType.Numeric)
     {
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new KdbndpBigIntegerTypeMapping(parameters);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override string ProcessStoreType(RelationalTypeMappingParameters parameters, string storeType, string _)
         => parameters.Precision is null
             ? storeType
             : parameters.Scale is null
                 ? $"numeric({parameters.Precision})"
                 : $"numeric({parameters.Precision},{parameters.Scale})";
+
+    private sealed class JsonBigIntegerReaderWriter : JsonValueReaderWriter<BigInteger>
+    {
+        public static JsonBigIntegerReaderWriter Instance { get; } = new();
+
+        // Other systems handling the JSON very likely won't support arbitrary-length numbers here, we encode as a string
+        public override BigInteger FromJsonTyped(ref Utf8JsonReaderManager manager, object? existingObject = null)
+            => BigInteger.Parse(manager.CurrentReader.GetString()!);
+
+        public override void ToJsonTyped(Utf8JsonWriter writer, BigInteger value)
+            => writer.WriteStringValue(value.ToString());
+    }
 }

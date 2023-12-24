@@ -1,17 +1,60 @@
-using System;
 using System.Globalization;
-using Microsoft.EntityFrameworkCore.Storage;
-using KdbndpTypes;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpTimeTypeMapping : KdbndpTypeMapping
 {
-    public KdbndpTimeTypeMapping(Type clrType) : base("time without time zone", clrType, KdbndpDbType.Time) {}
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public static KdbndpTimeTypeMapping Default { get; } = new(typeof(TimeOnly));
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public KdbndpTimeTypeMapping(Type clrType)
+        : base(
+            "time without time zone",
+            clrType,
+            KdbndpDbType.Time,
+            clrType == typeof(TimeOnly)
+                ? JsonTimeOnlyReaderWriter.Instance
+                : clrType == typeof(TimeSpan)
+                    ? JsonTimeSpanReaderWriter.Instance
+                    : throw new ArgumentException("clrType must be TimeOnly or TimeSpan", nameof(clrType)))
+    {
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected KdbndpTimeTypeMapping(RelationalTypeMappingParameters parameters)
-        : base(parameters, KdbndpDbType.Time) {}
+        : base(parameters, KdbndpDbType.Time)
+    {
+    }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new KdbndpTimeTypeMapping(parameters);
 
@@ -33,6 +76,12 @@ public class KdbndpTimeTypeMapping : KdbndpTypeMapping
     protected override string GenerateNonNullSqlLiteral(object value)
         => $"TIME '{GenerateEmbeddedNonNullSqlLiteral(value)}'";
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override string GenerateEmbeddedNonNullSqlLiteral(object value)
         => value switch
         {

@@ -1,16 +1,52 @@
-using System;
-using Microsoft.EntityFrameworkCore.Storage;
-using KdbndpTypes;
+using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpTimeTzTypeMapping : KdbndpTypeMapping
 {
-    public KdbndpTimeTzTypeMapping() : base("time with time zone", typeof(DateTimeOffset), KdbndpDbType.TimeTz) {}
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public static KdbndpTimeTzTypeMapping Default { get; } = new();
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public KdbndpTimeTzTypeMapping()
+        : base("time with time zone", typeof(DateTimeOffset), KdbndpDbType.TimeTz, JsonTimeTzReaderWriter.Instance)
+    {
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected KdbndpTimeTzTypeMapping(RelationalTypeMappingParameters parameters)
-        : base(parameters, KdbndpDbType.TimeTz) {}
+        : base(parameters, KdbndpDbType.TimeTz)
+    {
+    }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new KdbndpTimeTzTypeMapping(parameters);
 
@@ -32,6 +68,35 @@ public class KdbndpTimeTzTypeMapping : KdbndpTypeMapping
     protected override string GenerateNonNullSqlLiteral(object value)
         => FormattableString.Invariant($"TIMETZ '{(DateTimeOffset)value:HH:mm:ss.FFFFFFz}'");
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override string GenerateEmbeddedNonNullSqlLiteral(object value)
-        => FormattableString.Invariant(@$"""{(DateTimeOffset)value:HH:mm:ss.FFFFFFz}""");
+        => FormattableString.Invariant(@$"{(DateTimeOffset)value:HH:mm:ss.FFFFFFz}");
+
+    private sealed class JsonTimeTzReaderWriter : JsonValueReaderWriter<DateTimeOffset>
+    {
+        /// <summary>
+        ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+        ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+        ///     any release. You should only use it directly in your code with extreme caution and knowing that
+        ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+        /// </summary>
+        public static JsonTimeTzReaderWriter Instance { get; } = new();
+
+        private JsonTimeTzReaderWriter()
+        {
+        }
+
+        /// <inheritdoc />
+        public override DateTimeOffset FromJsonTyped(ref Utf8JsonReaderManager manager, object? existingObject = null)
+            => DateTimeOffset.Parse(manager.CurrentReader.GetString()!);
+
+        /// <inheritdoc />
+        public override void ToJsonTyped(Utf8JsonWriter writer, DateTimeOffset value)
+            => writer.WriteStringValue(value.ToString("HH:mm:ss.FFFFFFz"));
+    }
 }

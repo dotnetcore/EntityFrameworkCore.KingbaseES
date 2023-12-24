@@ -1,12 +1,19 @@
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Utilities;
-
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpParameterBasedSqlProcessor : RelationalParameterBasedSqlProcessor
 {
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpParameterBasedSqlProcessor(
         RelationalParameterBasedSqlProcessorDependencies dependencies,
         bool useRelationalNulls)
@@ -14,13 +21,34 @@ public class KdbndpParameterBasedSqlProcessor : RelationalParameterBasedSqlProce
     {
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public override Expression Optimize(
+        Expression queryExpression,
+        IReadOnlyDictionary<string, object?> parametersValues,
+        out bool canCache)
+    {
+        queryExpression = base.Optimize(queryExpression, parametersValues, out canCache);
+
+        queryExpression = new KdbndpDeleteConvertingExpressionVisitor().Process(queryExpression);
+
+        return queryExpression;
+    }
+
     /// <inheritdoc />
-    protected override SelectExpression ProcessSqlNullability(
-        SelectExpression selectExpression, IReadOnlyDictionary<string, object?> parametersValues, out bool canCache)
+    protected override Expression ProcessSqlNullability(
+        Expression selectExpression,
+        IReadOnlyDictionary<string, object?> parametersValues,
+        out bool canCache)
     {
         Check.NotNull(selectExpression, nameof(selectExpression));
         Check.NotNull(parametersValues, nameof(parametersValues));
 
-        return new KdbndpSqlNullabilityProcessor(Dependencies, UseRelationalNulls).Process(selectExpression, parametersValues, out canCache);
+        return new KdbndpSqlNullabilityProcessor(Dependencies, UseRelationalNulls).Process(
+            selectExpression, parametersValues, out canCache);
     }
 }

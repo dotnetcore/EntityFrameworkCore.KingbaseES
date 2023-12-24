@@ -8,11 +8,17 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design"/>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\EFCore.KingbaseES\EFCore.KingbaseES.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Kdbndp">
+      <HintPath>..\..\src\EFCore.KingbaseES\Lib\Kdbndp.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

@@ -1,12 +1,21 @@
-﻿using System;
-using System.Linq.Expressions;
-using Microsoft.EntityFrameworkCore.Query;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Infrastructure.Internal;
+﻿using Kdbndp.EntityFrameworkCore.KingbaseES.Infrastructure.Internal;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpCompiledQueryCacheKeyGenerator : RelationalCompiledQueryCacheKeyGenerator
 {
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpCompiledQueryCacheKeyGenerator(
         CompiledQueryCacheKeyGeneratorDependencies dependencies,
         RelationalCompiledQueryCacheKeyGeneratorDependencies relationalDependencies)
@@ -14,6 +23,12 @@ public class KdbndpCompiledQueryCacheKeyGenerator : RelationalCompiledQueryCache
     {
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override object GenerateCacheKey(Expression query, bool async)
         => new KdbndpCompiledQueryCacheKey(
             GenerateCacheKeyCore(query, async),
@@ -25,7 +40,8 @@ public class KdbndpCompiledQueryCacheKeyGenerator : RelationalCompiledQueryCache
         private readonly bool _reverseNullOrdering;
 
         public KdbndpCompiledQueryCacheKey(
-            RelationalCompiledQueryCacheKey relationalCompiledQueryCacheKey, bool reverseNullOrdering)
+            RelationalCompiledQueryCacheKey relationalCompiledQueryCacheKey,
+            bool reverseNullOrdering)
         {
             _relationalCompiledQueryCacheKey = relationalCompiledQueryCacheKey;
             _reverseNullOrdering = reverseNullOrdering;
@@ -40,6 +56,7 @@ public class KdbndpCompiledQueryCacheKeyGenerator : RelationalCompiledQueryCache
             => _relationalCompiledQueryCacheKey.Equals(other._relationalCompiledQueryCacheKey)
                 && _reverseNullOrdering == other._reverseNullOrdering;
 
-        public override int GetHashCode() => HashCode.Combine(_relationalCompiledQueryCacheKey, _reverseNullOrdering);
+        public override int GetHashCode()
+            => HashCode.Combine(_relationalCompiledQueryCacheKey, _reverseNullOrdering);
     }
 }

@@ -1,16 +1,3 @@
-using System;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Microsoft.EntityFrameworkCore.Update;
-using Microsoft.EntityFrameworkCore.Utilities;
-using Microsoft.EntityFrameworkCore.ValueGeneration;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Diagnostics.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Infrastructure;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Infrastructure.Internal;
@@ -23,7 +10,6 @@ using Kdbndp.EntityFrameworkCore.KingbaseES.Query;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.ValueConversion;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Update.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.ValueGeneration.Internal;
 
@@ -31,7 +17,7 @@ using Kdbndp.EntityFrameworkCore.KingbaseES.ValueGeneration.Internal;
 namespace Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
-/// Provides extension methods to configure Entity Framework Core for Kdbndp.
+///     Provides extension methods to configure Entity Framework Core for Kdbndp.
 /// </summary>
 // ReSharper disable once UnusedMember.Global
 public static class KdbndpServiceCollectionExtensions
@@ -65,18 +51,19 @@ public static class KdbndpServiceCollectionExtensions
     /// <returns> The same service collection so that multiple calls can be chained. </returns>
     public static IServiceCollection AddKdbndp<TContext>(
         this IServiceCollection serviceCollection,
-        string connectionString, Action<KdbndpDbContextOptionsBuilder>? KdbndpOptionsAction = null,
+        string? connectionString,
+        Action<KdbndpDbContextOptionsBuilder>? KdbndpOptionsAction = null,
         Action<DbContextOptionsBuilder>? optionsAction = null)
         where TContext : DbContext
     {
         Check.NotNull(serviceCollection, nameof(serviceCollection));
-        Check.NotEmpty(connectionString, nameof(connectionString));
 
-        return serviceCollection.AddDbContext<TContext>((serviceProvider, options) =>
-        {
-            optionsAction?.Invoke(options);
-            options.UseKdbndp(connectionString, KdbndpOptionsAction);
-        });
+        return serviceCollection.AddDbContext<TContext>(
+            (_, options) =>
+            {
+                optionsAction?.Invoke(options);
+                options.UseKdbndp(connectionString, KdbndpOptionsAction);
+            });
     }
 
     /// <summary>
@@ -108,9 +95,10 @@ public static class KdbndpServiceCollectionExtensions
             .TryAdd<ISqlGenerationHelper, KdbndpSqlGenerationHelper>()
             .TryAdd<IRelationalAnnotationProvider, KdbndpAnnotationProvider>()
             .TryAdd<IModelValidator, KdbndpModelValidator>()
+            .TryAdd<IMigrator, KdbndpMigrator>()
             .TryAdd<IProviderConventionSetBuilder, KdbndpConventionSetBuilder>()
-            .TryAdd<IRelationalValueBufferFactoryFactory, TypedRelationalValueBufferFactoryFactory>()
             .TryAdd<IUpdateSqlGenerator, KdbndpUpdateSqlGenerator>()
+            .TryAdd<IModificationCommandFactory, KdbndpModificationCommandFactory>()
             .TryAdd<IModificationCommandBatchFactory, KdbndpModificationCommandBatchFactory>()
             .TryAdd<IValueGeneratorSelector, KdbndpValueGeneratorSelector>()
             .TryAdd<IRelationalConnection>(p => p.GetRequiredService<IKdbndpRelationalConnection>())
@@ -119,15 +107,18 @@ public static class KdbndpServiceCollectionExtensions
             .TryAdd<IHistoryRepository, KdbndpHistoryRepository>()
             .TryAdd<ICompiledQueryCacheKeyGenerator, KdbndpCompiledQueryCacheKeyGenerator>()
             .TryAdd<IExecutionStrategyFactory, KdbndpExecutionStrategyFactory>()
+            .TryAdd<IQueryableMethodTranslatingExpressionVisitorFactory, KdbndpQueryableMethodTranslatingExpressionVisitorFactory>()
             .TryAdd<IMethodCallTranslatorProvider, KdbndpMethodCallTranslatorProvider>()
+            .TryAdd<IAggregateMethodCallTranslatorProvider, KdbndpAggregateMethodCallTranslatorProvider>()
             .TryAdd<IMemberTranslatorProvider, KdbndpMemberTranslatorProvider>()
             .TryAdd<IEvaluatableExpressionFilter, KdbndpEvaluatableExpressionFilter>()
             .TryAdd<IQuerySqlGeneratorFactory, KdbndpQuerySqlGeneratorFactory>()
             .TryAdd<IRelationalSqlTranslatingExpressionVisitorFactory, KdbndpSqlTranslatingExpressionVisitorFactory>()
+            .TryAdd<IQueryTranslationPreprocessorFactory, KdbndpQueryTranslationPreprocessorFactory>()
+            .TryAdd<IQueryTranslationPostprocessorFactory, KdbndpQueryTranslationPostprocessorFactory>()
             .TryAdd<IRelationalParameterBasedSqlProcessorFactory, KdbndpParameterBasedSqlProcessorFactory>()
             .TryAdd<ISqlExpressionFactory, KdbndpSqlExpressionFactory>()
             .TryAdd<ISingletonOptions, IKdbndpSingletonOptions>(p => p.GetRequiredService<IKdbndpSingletonOptions>())
-            .TryAdd<IValueConverterSelector, KdbndpValueConverterSelector>()
             .TryAdd<IQueryCompilationContextFactory, KdbndpQueryCompilationContextFactory>()
             .TryAddProviderSpecificServices(
                 b => b

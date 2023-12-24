@@ -1,14 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
@@ -16,12 +5,24 @@ using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpJsonDbFunctionsTranslator : IMethodCallTranslator
 {
     private readonly KdbndpSqlExpressionFactory _sqlExpressionFactory;
     private readonly RelationalTypeMapping _stringTypeMapping;
     private readonly RelationalTypeMapping _jsonbTypeMapping;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpJsonDbFunctionsTranslator(
         IRelationalTypeMappingSource typeMappingSource,
         KdbndpSqlExpressionFactory sqlExpressionFactory,
@@ -32,6 +33,12 @@ public class KdbndpJsonDbFunctionsTranslator : IMethodCallTranslator
         _jsonbTypeMapping = typeMappingSource.FindMapping("jsonb")!;
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual SqlExpression? Translate(
         SqlExpression? instance,
         MethodInfo method,
@@ -53,10 +60,10 @@ public class KdbndpJsonDbFunctionsTranslator : IMethodCallTranslator
             // If a function is invoked over a JSON traversal expression, that expression may come with
             // returnText: true (i.e. operator ->> and not ->). Since the functions below require a json object and
             // not text, we transform it.
-            .Select(a => a is PostgresJsonTraversalExpression traversal ? WithReturnsText(traversal, false) : a)
+            .Select(a => a is PgJsonTraversalExpression traversal ? WithReturnsText(traversal, false) : a)
             .ToArray();
 
-        if (!args.Any(a => a.TypeMapping is KdbndpJsonTypeMapping || a is PostgresJsonTraversalExpression))
+        if (!args.Any(a => a.TypeMapping is KdbndpJsonTypeMapping || a is PgJsonTraversalExpression))
         {
             throw new InvalidOperationException("The EF JSON methods require a JSON parameter and none was found.");
         }
@@ -72,7 +79,7 @@ public class KdbndpJsonDbFunctionsTranslator : IMethodCallTranslator
         }
 
         // The following are jsonb-only, not support on json
-        if (args.Any(a => a.TypeMapping is KdbndpJsonTypeMapping jsonMapping && !jsonMapping.IsJsonb))
+        if (args.Any(a => a.TypeMapping is KdbndpJsonTypeMapping { IsJsonb: false }))
         {
             throw new InvalidOperationException("JSON methods on EF.Functions only support the jsonb type, not json.");
         }
@@ -84,11 +91,11 @@ public class KdbndpJsonDbFunctionsTranslator : IMethodCallTranslator
             nameof(KdbndpJsonDbFunctionsExtensions.JsonContained)
                 => _sqlExpressionFactory.ContainedBy(Jsonb(args[0]), Jsonb(args[1])),
             nameof(KdbndpJsonDbFunctionsExtensions.JsonExists)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.JsonExists, Jsonb(args[0]), args[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.JsonExists, Jsonb(args[0]), args[1]),
             nameof(KdbndpJsonDbFunctionsExtensions.JsonExistAny)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.JsonExistsAny, Jsonb(args[0]), args[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.JsonExistsAny, Jsonb(args[0]), args[1]),
             nameof(KdbndpJsonDbFunctionsExtensions.JsonExistAll)
-                => _sqlExpressionFactory.MakePostgresBinary(PostgresExpressionType.JsonExistsAll, Jsonb(args[0]), args[1]),
+                => _sqlExpressionFactory.MakePostgresBinary(PgExpressionType.JsonExistsAll, Jsonb(args[0]), args[1]),
 
             _ => null
         };
@@ -102,8 +109,7 @@ public class KdbndpJsonDbFunctionsTranslator : IMethodCallTranslator
 
         static SqlExpression RemoveConvert(SqlExpression e)
         {
-            while (e is SqlUnaryExpression unary &&
-                   (unary.OperatorType == ExpressionType.Convert || unary.OperatorType == ExpressionType.ConvertChecked))
+            while (e is SqlUnaryExpression { OperatorType: ExpressionType.Convert or ExpressionType.ConvertChecked } unary)
             {
                 e = unary.Operand;
             }
@@ -111,11 +117,12 @@ public class KdbndpJsonDbFunctionsTranslator : IMethodCallTranslator
             return e;
         }
 
-        PostgresJsonTraversalExpression WithReturnsText(PostgresJsonTraversalExpression traversal, bool returnsText)
+        PgJsonTraversalExpression WithReturnsText(PgJsonTraversalExpression traversal, bool returnsText)
             => traversal.ReturnsText == returnsText
                 ? traversal
                 : returnsText
-                    ? new PostgresJsonTraversalExpression(traversal.Expression, traversal.Path, true, typeof(string), _stringTypeMapping)
-                    : new PostgresJsonTraversalExpression(traversal.Expression, traversal.Path, false, traversal.Type, traversal.Expression.TypeMapping);
+                    ? new PgJsonTraversalExpression(traversal.Expression, traversal.Path, true, typeof(string), _stringTypeMapping)
+                    : new PgJsonTraversalExpression(
+                        traversal.Expression, traversal.Path, false, traversal.Type, traversal.Expression.TypeMapping);
     }
 }

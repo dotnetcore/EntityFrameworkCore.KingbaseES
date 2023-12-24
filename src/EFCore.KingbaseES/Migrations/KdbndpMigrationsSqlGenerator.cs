@@ -1,15 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Migrations.Operations;
-using Microsoft.EntityFrameworkCore.Storage;
-using Microsoft.EntityFrameworkCore.Utilities;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Infrastructure.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
@@ -18,16 +8,34 @@ using Kdbndp.EntityFrameworkCore.KingbaseES.Update.Internal;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Migrations;
 
+/// <summary>
+///     KingbaseES-specific implementation of <see cref="MigrationsSqlGenerator" />.
+/// </summary>
+/// <remarks>
+///     <para>
+///         The service lifetime is <see cref="ServiceLifetime.Scoped" />. This means that each <see cref="DbContext" /> instance will use
+///         its own instance of this service. The implementation may depend on other services registered with any lifetime. The
+///         implementation does not need to be thread-safe.
+///     </para>
+///     <para>
+///         See <see href="https://aka.ms/efcore-docs-migrations">Database migrations</see>.
+///     </para>
+/// </remarks>
 public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 {
     private IReadOnlyList<MigrationOperation> _operations = null!;
     private readonly RelationalTypeMapping _stringTypeMapping;
 
     /// <summary>
-    /// The backend version to target.
+    ///     The backend version to target.
     /// </summary>
     private readonly Version _postgresVersion;
 
+    /// <summary>
+    ///     Creates a new <see cref="KdbndpMigrationsSqlGenerator" /> instance.
+    /// </summary>
+    /// <param name="dependencies">Parameter object containing dependencies for this service.</param>
+    /// <param name="KdbndpSingletonOptions">The singleton options to use.</param>
     public KdbndpMigrationsSqlGenerator(
         MigrationsSqlGeneratorDependencies dependencies,
         IKdbndpSingletonOptions KdbndpSingletonOptions)
@@ -38,6 +46,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             ?? throw new InvalidOperationException("No string type mapping found");
     }
 
+    /// <inheritdoc />
     public override IReadOnlyList<MigrationCommand> Generate(
         IReadOnlyList<MigrationOperation> operations,
         IModel? model = null,
@@ -88,7 +97,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
             foreach (var c in seededGeneratedColumns)
             {
-                // Weirdly, sys_get_serial_sequence accepts a standard quoted "schema"."table" inside its first
+                // Weirdly, pg_get_serial_sequence accepts a standard quoted "schema"."table" inside its first
                 // parameter string literal, but the second one is a column name that shouldn't be double-quoted...
 
                 var table = Dependencies.SqlGenerationHelper.DelimitIdentifier(c.Table.Name, c.Table.Schema);
@@ -108,10 +117,10 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
                 builder
                     .AppendLine(
                         @$"{selectOrPerform} setval(
-    sys_get_serial_sequence('{table}', '{unquotedColumn}'),
+    pg_get_serial_sequence('{table}', '{unquotedColumn}'),
     GREATEST(
         (SELECT MAX({column}) FROM {table}) + 1,
-        nextval(sys_get_serial_sequence('{table}', '{unquotedColumn}'))),
+        nextval(pg_get_serial_sequence('{table}', '{unquotedColumn}'))),
     false);");
             }
 
@@ -121,6 +130,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
     }
 
+    /// <inheritdoc />
     protected override void Generate(MigrationOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
@@ -143,6 +153,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
     #region Standard migrations
 
+    /// <inheritdoc />
     protected override void Generate(
         CreateTableOperation operation,
         IModel? model,
@@ -151,14 +162,15 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
     {
         if (!terminate && operation.Comment is not null)
         {
-            throw new ArgumentException($"When generating migrations SQL for {nameof(CreateTableOperation)}, can't produce unterminated SQL with comments");
+            throw new ArgumentException(
+                $"When generating migrations SQL for {nameof(CreateTableOperation)}, can't produce unterminated SQL with comments");
         }
 
         operation.Columns.RemoveAll(c => IsSystemColumn(c.Name));
 
         builder.Append("CREATE ");
 
-        if (operation[KdbndpAnnotationNames.UnloggedTable] is bool unlogged && unlogged)
+        if (operation[KdbndpAnnotationNames.UnloggedTable] is true)
         {
             builder.Append("UNLOGGED ");
         }
@@ -194,15 +206,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
                 .Append(")");
         }
 
-        var storageParameters = GetStorageParameters(operation);
-        if (storageParameters.Count > 0)
-        {
-            builder
-                .AppendLine()
-                .Append("WITH (")
-                .Append(string.Join(", ", storageParameters.Select(p => $"{p.Key}={p.Value}")))
-                .Append(")");
-        }
+        AppendStoreParameters(operation, builder, withLeadingNewline: true);
 
         // Comment on the table
         if (operation.Comment is not null)
@@ -238,53 +242,14 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
     }
 
+    /// <inheritdoc />
     protected override void Generate(AlterTableOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
+        var alterTableBaseSql = $"ALTER TABLE {DelimitIdentifier(operation.Name, operation.Schema)}";
         var madeChanges = false;
 
         // Storage parameters
-        var oldStorageParameters = GetStorageParameters(operation.OldTable);
-        var newStorageParameters = GetStorageParameters(operation);
-
-        var newOrChanged = newStorageParameters.Where(p =>
-            !oldStorageParameters.ContainsKey(p.Key) ||
-            oldStorageParameters[p.Key] != p.Value
-        ).ToList();
-
-        if (newOrChanged.Count > 0)
-        {
-            builder
-                .Append("ALTER TABLE ")
-                .Append(DelimitIdentifier(operation.Name, operation.Schema));
-
-            builder
-                .Append(" SET (")
-                .Append(string.Join(", ", newOrChanged.Select(p => $"{p.Key}={p.Value}")))
-                .Append(")");
-
-            builder.AppendLine(";");
-            madeChanges = true;
-        }
-
-        var removed = oldStorageParameters
-            .Select(p => p.Key)
-            .Where(pn => !newStorageParameters.ContainsKey(pn))
-            .ToList();
-
-        if (removed.Count > 0)
-        {
-            builder
-                .Append("ALTER TABLE ")
-                .Append(DelimitIdentifier(operation.Name, operation.Schema));
-
-            builder
-                .Append(" RESET (")
-                .Append(string.Join(", ", removed))
-                .Append(")");
-
-            builder.AppendLine(";");
-            madeChanges = true;
-        }
+        madeChanges |= AppendStorageParameterAlterations(operation.OldTable, operation, alterTableBaseSql, builder);
 
         // Comment
         if (operation.Comment != operation.OldTable.Comment)
@@ -300,14 +265,13 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
 
         // Unlogged table (null is equivalent to false)
-        var oldUnlogged = operation.OldTable[KdbndpAnnotationNames.UnloggedTable] is bool ou && ou;
-        var newUnlogged = operation[KdbndpAnnotationNames.UnloggedTable] is bool nu && nu;
+        var oldUnlogged = operation.OldTable[KdbndpAnnotationNames.UnloggedTable] is true;
+        var newUnlogged = operation[KdbndpAnnotationNames.UnloggedTable] is true;
 
         if (oldUnlogged != newUnlogged)
         {
             builder
-                .Append("ALTER TABLE ")
-                .Append(DelimitIdentifier(operation.Name, operation.Schema))
+                .Append(alterTableBaseSql)
                 .Append(" SET ")
                 .Append(newUnlogged ? "UNLOGGED" : "LOGGED")
                 .AppendLine(";");
@@ -321,6 +285,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
     }
 
+    /// <inheritdoc />
     protected override void Generate(
         DropColumnOperation operation,
         IModel? model,
@@ -336,6 +301,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         base.Generate(operation, model, builder, terminate);
     }
 
+    /// <inheritdoc />
     protected override void Generate(
         AddColumnOperation operation,
         IModel? model,
@@ -344,7 +310,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
     {
         if (!terminate && operation.Comment is not null)
         {
-            throw new ArgumentException($"When generating migrations SQL for {nameof(AddColumnOperation)}, can't produce unterminated SQL with comments");
+            throw new ArgumentException(
+                $"When generating migrations SQL for {nameof(AddColumnOperation)}, can't produce unterminated SQL with comments");
         }
 
         // Never touch system columns
@@ -389,6 +356,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
     }
 
+    /// <inheritdoc />
     protected override void Generate(AlterColumnOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
@@ -403,8 +371,11 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         var column = model?.GetRelationalModel().FindTable(operation.Table, operation.Schema)
             ?.Columns.FirstOrDefault(c => c.Name == operation.Name);
 
-        ApplyTsVectorColumnSql(operation, model, operation.Schema, operation.Table);
-        ApplyTsVectorColumnSql(operation.OldColumn, model, operation.OldColumn.Schema, operation.OldColumn.Table);
+        ApplyTsVectorColumnSql(operation, model, operation.Name, operation.Schema, operation.Table);
+
+        // Note: OldColumn doesn't have Schema, Table or Name populated (https://github.com/dotnet/efcore/issues/28041), so we take these
+        // from the new column (they're identical in any case).
+        ApplyTsVectorColumnSql(operation.OldColumn, model, operation.Name, operation.Schema, operation.Table);
 
         if (operation.ComputedColumnSql != operation.OldColumn.ComputedColumnSql
             || operation.IsStored != operation.OldColumn.IsStored)
@@ -457,22 +428,24 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
         string? newSequenceName = null;
 
-        var alterBase = $"ALTER TABLE {DelimitIdentifier(operation.Table, operation.Schema)} " +
-            $"ALTER COLUMN {DelimitIdentifier(operation.Name)} ";
+        var alterBase = $"ALTER TABLE {DelimitIdentifier(operation.Table, operation.Schema)} "
+            + $"ALTER COLUMN {DelimitIdentifier(operation.Name)} ";
 
         // TYPE + COLLATION
-        var type = operation.ColumnType ??
-            GetColumnType(operation.Schema, operation.Table, operation.Name, operation, model)!;
+        var type = operation.ColumnType ?? GetColumnType(operation.Schema, operation.Table, operation.Name, operation, model)!;
         var oldType = IsOldColumnSupported(model)
-            ? operation.OldColumn.ColumnType ??
-            GetColumnType(operation.Schema, operation.Table, operation.Name, operation.OldColumn, model)
+            ? operation.OldColumn.ColumnType ?? GetColumnType(operation.Schema, operation.Table, operation.Name, operation.OldColumn, model)
             : null;
 
         // If a collation was defined on the column specifically, via the standard EF mechanism, it will be
-        // available in operation.Collation (as usual). If not, there may be a model-wide default column collation,
-        // which gets transmitted via the Kdbndp-specific annotation.
+        // available in operation.Collation (as usual).
+        // If not, there may be a model-wide default column collation, which gets transmitted via the Kdbndp-specific annotation.
+        // This mechanism is obsolete, and EF Core's bulk model configuration can be used instead; but we continue to support it for
+        // backwards compat.
+#pragma warning disable CS0618
         var oldCollation = (string?)(operation.OldColumn.Collation ?? operation.OldColumn[KdbndpAnnotationNames.DefaultColumnCollation]);
         var newCollation = (string?)(operation.Collation ?? operation[KdbndpAnnotationNames.DefaultColumnCollation]);
+#pragma warning restore CS0618
 
         if (type != oldType || newCollation != oldCollation)
         {
@@ -489,14 +462,14 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             builder.AppendLine(";");
         }
 
-        if (operation.IsNullable && !operation.OldColumn.IsNullable)
+        if (operation is { IsNullable: true, OldColumn.IsNullable: false })
         {
             builder
                 .Append(alterBase)
                 .Append("DROP NOT NULL")
                 .AppendLine(";");
         }
-        else if (!operation.IsNullable && operation.OldColumn.IsNullable)
+        else if (operation is { IsNullable: false, OldColumn.IsNullable: true })
         {
             // The column is being made non-nullable. Generate an update statement before doing that, to convert any existing null values to
             // the default value (otherwise KingbaseES fails).
@@ -598,7 +571,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
                 {
                     case null:
                         // Drop the identity, converting the column to a regular int
-                        builder.AppendLine(alterBase).AppendLine("DROP IDENTITY;");
+                        builder.Append(alterBase).AppendLine("DROP IDENTITY;");
                         break;
                     case KdbndpValueGenerationStrategy.IdentityAlwaysColumn:
                         builder.Append(alterBase).AppendLine("SET GENERATED ALWAYS;");
@@ -634,12 +607,13 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
                             case "smallint":
                             case "int2":
                                 newSequenceName = $"{operation.Table}_{operation.Name}_seq";
-                                Generate(new CreateSequenceOperation
-                                {
-                                    Schema = operation.Schema,
-                                    Name = newSequenceName,
-                                    ClrType = operation.ClrType
-                                }, model, builder);
+                                Generate(
+                                    new CreateSequenceOperation
+                                    {
+                                        Schema = operation.Schema,
+                                        Name = newSequenceName,
+                                        ClrType = operation.ClrType
+                                    }, model, builder);
 
                                 builder.Append(alterBase).Append("SET");
                                 DefaultValue(null, $@"nextval('{DelimitIdentifier(newSequenceName, operation.Schema)}')", type, builder);
@@ -647,6 +621,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
                                 // Note: we also need to set the sequence ownership, this is done below after the ALTER COLUMN
                                 break;
                         }
+
                         break;
                     default:
                         throw new NotSupportedException($"Don't know how to apply value generation strategy {newStrategy}");
@@ -684,9 +659,10 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             {
                 builder
                     .Append(alterBase)
-                    .Append(newSequenceOptions.MinValue is null
-                        ? "SET NO MINVALUE"
-                        : "SET MINVALUE " + newSequenceOptions.MinValue)
+                    .Append(
+                        newSequenceOptions.MinValue is null
+                            ? "SET NO MINVALUE"
+                            : "SET MINVALUE " + newSequenceOptions.MinValue)
                     .AppendLine(";");
             }
 
@@ -694,9 +670,10 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             {
                 builder
                     .Append(alterBase)
-                    .Append(newSequenceOptions.MaxValue is null
-                        ? "SET NO MAXVALUE"
-                        : "SET MAXVALUE " + newSequenceOptions.MaxValue)
+                    .Append(
+                        newSequenceOptions.MaxValue is null
+                            ? "SET NO MAXVALUE"
+                            : "SET MAXVALUE " + newSequenceOptions.MaxValue)
                     .AppendLine(";");
             }
 
@@ -704,9 +681,10 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             {
                 builder
                     .Append(alterBase)
-                    .Append(newSequenceOptions.IsCyclic
-                        ? "SET CYCLE"
-                        : "SET NO CYCLE")
+                    .Append(
+                        newSequenceOptions.IsCyclic
+                            ? "SET CYCLE"
+                            : "SET NO CYCLE")
                     .AppendLine(";");
             }
 
@@ -723,9 +701,9 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         // DEFAULT.
         // Note that defaults values for value-generated columns (identity, serial) are managed above. This is
         // only for regular columns with user-specified default settings.
-        if (newStrategy is null &&
-            (operation.DefaultValueSql != operation.OldColumn.DefaultValueSql ||
-                !Equals(operation.DefaultValue, operation.OldColumn.DefaultValue)))
+        if (newStrategy is null
+            && (operation.DefaultValueSql != operation.OldColumn.DefaultValueSql
+                || !Equals(operation.DefaultValue, operation.OldColumn.DefaultValue)))
         {
             builder.Append(alterBase);
             if (operation.DefaultValue is not null || operation.DefaultValueSql is not null)
@@ -771,13 +749,13 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         EndStatement(builder);
     }
 
+    /// <inheritdoc />
     protected override void Generate(RenameIndexOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
         Check.NotNull(builder, nameof(builder));
 
-        if (operation.NewName is not null &&
-            operation.NewName != operation.Name)
+        if (operation.NewName is not null && operation.NewName != operation.Name)
         {
             Rename(operation.Schema, operation.Name, operation.NewName, "INDEX", builder);
         }
@@ -786,22 +764,21 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         EndStatement(builder);
     }
 
+    /// <inheritdoc />
     protected override void Generate(RenameSequenceOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
         Check.NotNull(builder, nameof(builder));
 
         var name = operation.Name;
-        if (operation.NewName is not null &&
-            operation.NewName != operation.Name)
+        if (operation.NewName is not null && operation.NewName != operation.Name)
         {
             Rename(operation.Schema, operation.Name, operation.NewName, "SEQUENCE", builder);
 
             name = operation.NewName;
         }
 
-        if (operation.NewSchema is not null &&
-            operation.NewSchema != operation.Schema)
+        if (operation.NewSchema is not null && operation.NewSchema != operation.Schema)
         {
             Transfer(operation.NewSchema, operation.Schema, name, "SEQUENCE", builder);
         }
@@ -809,22 +786,57 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         EndStatement(builder);
     }
 
+    /// <inheritdoc />
+    protected override void Generate(RestartSequenceOperation operation, IModel? model, MigrationCommandListBuilder builder)
+    {
+        // KingbaseES has ALTER SEQUENCE ... RESTART WITH x, which resets the current sequence value but does not change its start value
+        // in the schema (so a subsequence RESTART without an argument resets it back to its original start value, not to x).
+        // It also has ALTER SEQUENCE ... STARTS WITH x, which resets the schema start value but not the current value.
+        // So we use both statements to reset both the current value and the schema value.
+        if (operation.StartValue.HasValue)
+        {
+            var longTypeMapping = Dependencies.TypeMappingSource.GetMapping(typeof(long));
+
+            builder
+                .Append("ALTER SEQUENCE ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name, operation.Schema))
+                .Append(" START WITH ")
+                .Append(longTypeMapping.GenerateSqlLiteral(operation.StartValue.Value))
+                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+
+            builder
+                .Append("ALTER SEQUENCE ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name, operation.Schema))
+                .Append(" RESTART")
+                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+        }
+        else
+        {
+            builder
+                .Append("ALTER SEQUENCE ")
+                .Append(Dependencies.SqlGenerationHelper.DelimitIdentifier(operation.Name, operation.Schema))
+                .Append(" RESTART")
+                .AppendLine(Dependencies.SqlGenerationHelper.StatementTerminator);
+        }
+
+        EndStatement(builder);
+    }
+
+    /// <inheritdoc />
     protected override void Generate(RenameTableOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
         Check.NotNull(builder, nameof(builder));
 
         var name = operation.Name;
-        if (operation.NewName is not null &&
-            operation.NewName != operation.Name)
+        if (operation.NewName is not null && operation.NewName != operation.Name)
         {
             Rename(operation.Schema, operation.Name, operation.NewName, "TABLE", builder);
 
             name = operation.NewName;
         }
 
-        if (operation.NewSchema is not null &&
-            operation.NewSchema != operation.Schema)
+        if (operation.NewSchema is not null && operation.NewSchema != operation.Schema)
         {
             Transfer(operation.NewSchema, operation.Schema, name, "TABLE", builder);
         }
@@ -832,6 +844,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         EndStatement(builder);
     }
 
+    /// <inheritdoc />
     protected override void Generate(
         CreateIndexOperation operation,
         IModel? model,
@@ -870,7 +883,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         var indexColumns = GetIndexColumns(operation);
 
         var columnsExpression = operation[KdbndpAnnotationNames.TsVectorConfig] is string tsVectorConfig
-            ? ColumnsToTsVector(indexColumns.Select(i => i.Name), tsVectorConfig, model, operation.Schema, operation.Table)
+            ? ColumnsToTsVector(operation.Name, indexColumns.Select(i => i.Name), tsVectorConfig, model, operation.Schema, operation.Table)
             : IndexColumnList(indexColumns, method);
 
         builder
@@ -888,11 +901,10 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
     }
 
+    /// <inheritdoc />
     protected override void IndexOptions(CreateIndexOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
-        if (_postgresVersion.AtLeast(11) &&
-            operation[KdbndpAnnotationNames.IndexInclude] is string[] includeColumns &&
-            includeColumns.Length > 0)
+        if (_postgresVersion.AtLeast(11) && operation[KdbndpAnnotationNames.IndexInclude] is string[] { Length: > 0 } includeColumns)
         {
             builder
                 .Append(" INCLUDE (")
@@ -900,9 +912,17 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
                 .Append(")");
         }
 
+        if (operation[KdbndpAnnotationNames.NullsDistinct] is false)
+        {
+            builder.Append(" NULLS NOT DISTINCT");
+        }
+
+        AppendStoreParameters(operation, builder, withLeadingNewline: false);
+
         base.IndexOptions(operation, model, builder);
     }
 
+    /// <inheritdoc />
     protected override void Generate(EnsureSchemaOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
@@ -926,12 +946,10 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
                 .AppendLine("BEGIN");
         }
 
-        builder.AppendLine(
-            $@"    IF NOT EXISTS(SELECT 1 FROM sys_namespace WHERE nspname = '{schemaName}') THEN"
-            + Environment.NewLine
-            + $"        CREATE SCHEMA {DelimitIdentifier(operation.Name)};"
-            + Environment.NewLine
-            + "    END IF;");
+        builder
+            .AppendLine($"    IF NOT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname = '{schemaName}') THEN")
+            .AppendLine($"        CREATE SCHEMA {DelimitIdentifier(operation.Name)};")
+            .AppendLine("    END IF;");
 
         if (!Options.HasFlag(MigrationsSqlGenerationOptions.Idempotent))
         {
@@ -941,10 +959,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         EndStatement(builder);
     }
 
-    protected virtual void Generate(
-        KdbndpCreateDatabaseOperation operation,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void Generate(KdbndpCreateDatabaseOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
         Check.NotNull(builder, nameof(builder));
@@ -982,10 +998,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         EndStatement(builder, suppressTransaction: true);
     }
 
-    public virtual void Generate(
-        KdbndpDropDatabaseOperation operation,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    public virtual void Generate(KdbndpDropDatabaseOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
         Check.NotNull(builder, nameof(builder));
@@ -1000,15 +1014,15 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         {
             builder
                 .AppendLine($"REVOKE CONNECT ON DATABASE {dbName} FROM PUBLIC;")
-                .AppendLine($"SELECT sys_terminate_backend(sys_stat_activity.pid) FROM sys_stat_activity WHERE datname = '{operation.Name}';")
+                .AppendLine($"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE datname = '{operation.Name}';")
                 .EndCommand(suppressTransaction: true)
                 .AppendLine($"DROP DATABASE {dbName};");
         }
 
-
         EndStatement(builder, suppressTransaction: true);
     }
 
+    /// <inheritdoc />
     protected override void Generate(
         AlterDatabaseOperation operation,
         IModel? model,
@@ -1034,6 +1048,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         builder.EndCommand();
     }
 
+    /// <inheritdoc />
     protected virtual void GenerateCreateExtension(
         PostgresExtension extension,
         IModel? model,
@@ -1069,13 +1084,10 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         builder.AppendLine(";");
     }
 
-
     #region Collation management
 
-    protected virtual void GenerateCollationStatements(
-        AlterDatabaseOperation operation,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void GenerateCollationStatements(AlterDatabaseOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         foreach (var collationToCreate in operation.GetPostgresCollations()
                      .Where(ne => operation.GetOldPostgresCollations().All(oe => oe.Name != ne.Name || oe.Schema != ne.Schema)))
@@ -1090,25 +1102,24 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
 
         foreach (var (newCollation, oldCollation) in operation.GetPostgresCollations()
-                     .Join(operation.GetOldPostgresCollations(),
+                     .Join(
+                         operation.GetOldPostgresCollations(),
                          e => new { e.Name, e.Schema },
                          e => new { e.Name, e.Schema },
                          (ne, oe) => (New: ne, Old: oe)))
         {
-            if (newCollation.LcCollate != oldCollation.LcCollate ||
-                newCollation.LcCtype != oldCollation.LcCtype ||
-                newCollation.Provider != oldCollation.Provider ||
-                newCollation.IsDeterministic != oldCollation.IsDeterministic)
+            if (newCollation.LcCollate != oldCollation.LcCollate
+                || newCollation.LcCtype != oldCollation.LcCtype
+                || newCollation.Provider != oldCollation.Provider
+                || newCollation.IsDeterministic != oldCollation.IsDeterministic)
             {
                 throw new NotSupportedException("Altering an existing collation is not supported.");
             }
         }
     }
 
-    protected virtual void GenerateCreateCollation(
-        PostgresCollation collation,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void GenerateCreateCollation(PostgresCollation collation, IModel? model, MigrationCommandListBuilder builder)
     {
         var schema = collation.Schema ?? model?.GetDefaultSchema();
 
@@ -1159,10 +1170,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             .AppendLine(");");
     }
 
-    protected virtual void GenerateDropCollation(
-        PostgresCollation collation,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void GenerateDropCollation(PostgresCollation collation, IModel? model, MigrationCommandListBuilder builder)
     {
         var schema = collation.Schema ?? model?.GetDefaultSchema();
 
@@ -1176,10 +1185,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
     #region Enum management
 
-    protected virtual void GenerateEnumStatements(
-        AlterDatabaseOperation operation,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void GenerateEnumStatements(AlterDatabaseOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         foreach (var enumTypeToCreate in operation.GetPostgresEnums()
                      .Where(ne => operation.GetOldPostgresEnums().All(oe => oe.Name != ne.Name || oe.Schema != ne.Schema)))
@@ -1194,7 +1201,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
 
         foreach (var (newEnum, oldEnum) in operation.GetPostgresEnums()
-                     .Join(operation.GetOldPostgresEnums(),
+                     .Join(
+                         operation.GetOldPostgresEnums(),
                          e => new { e.Name, e.Schema },
                          e => new { e.Name, e.Schema },
                          (ne, oe) => (New: ne, Old: oe)))
@@ -1205,12 +1213,12 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             // go into rename detection heuristics (users can do that in raw SQL).
             // See https://www.KingbaseES.org/docs/current/sql-altertype.html
 
-            if (oldLabels.Except(newLabels).FirstOrDefault() is string removedLabel)
+            if (oldLabels.Except(newLabels).FirstOrDefault() is { } removedLabel)
             {
                 throw new NotSupportedException(
-                    $"Can't remove enum label '{removedLabel}' from enum type '{newEnum}'. " +
-                    "Renaming a label is possible via a raw SQL migration (see " +
-                    "https://www.KingbaseES.org/docs/current/sql-altertype.html)");
+                    $"Can't remove enum label '{removedLabel}' from enum type '{newEnum}'. "
+                    + "Renaming a label is possible via a raw SQL migration (see "
+                    + "https://www.KingbaseES.org/docs/current/sql-altertype.html)");
             }
 
             for (var (newPos, oldPos) = (0, 0); newPos < newLabels.Count; newPos++)
@@ -1229,10 +1237,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
     }
 
-    protected virtual void GenerateCreateEnum(
-        PostgresEnum enumType,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void GenerateCreateEnum(PostgresEnum enumType, IModel? model, MigrationCommandListBuilder builder)
     {
         var schema = enumType.Schema ?? model?.GetDefaultSchema();
 
@@ -1261,10 +1267,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         builder.AppendLine(");");
     }
 
-    protected virtual void GenerateDropEnum(
-        PostgresEnum enumType,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void GenerateDropEnum(PostgresEnum enumType, IModel? model, MigrationCommandListBuilder builder)
     {
         var schema = enumType.Schema ?? model?.GetDefaultSchema();
 
@@ -1274,6 +1278,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             .AppendLine(";");
     }
 
+    /// <inheritdoc />
     protected virtual void GenerateAddEnumLabel(
         PostgresEnum enumType,
         string addedLabel,
@@ -1309,10 +1314,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
     #region Range management
 
-    protected virtual void GenerateRangeStatements(
-        AlterDatabaseOperation operation,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void GenerateRangeStatements(AlterDatabaseOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         foreach (var rangeTypeToCreate in operation.GetPostgresRanges()
                      .Where(ne => operation.GetOldPostgresRanges().All(oe => oe.Name != ne.Name)))
@@ -1326,18 +1329,17 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             GenerateDropRange(rangeTypeToDrop, model, builder);
         }
 
-        if (operation.GetPostgresRanges().FirstOrDefault(nr =>
-                operation.GetOldPostgresRanges().Any(or => or.Name == nr.Name)
-            ) is PostgresRange rangeTypeToAlter)
+        if (operation.GetPostgresRanges().FirstOrDefault(
+                nr =>
+                    operation.GetOldPostgresRanges().Any(or => or.Name == nr.Name)
+            ) is { } rangeTypeToAlter)
         {
             throw new NotSupportedException($"Altering range type ${rangeTypeToAlter} isn't supported.");
         }
     }
 
-    protected virtual void GenerateCreateRange(
-        PostgresRange rangeType,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void GenerateCreateRange(PostgresRange rangeType, IModel? model, MigrationCommandListBuilder builder)
     {
         var schema = rangeType.Schema ?? model?.GetDefaultSchema();
 
@@ -1387,10 +1389,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             .AppendLine(");");
     }
 
-    protected virtual void GenerateDropRange(
-        PostgresRange rangeType,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected virtual void GenerateDropRange(PostgresRange rangeType, IModel? model, MigrationCommandListBuilder builder)
     {
         var schema = rangeType.Schema ?? model?.GetDefaultSchema();
 
@@ -1402,6 +1402,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
     #endregion Range management
 
+    /// <inheritdoc />
     protected override void Generate(
         DropIndexOperation operation,
         IModel? model,
@@ -1422,10 +1423,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
     }
 
-    protected override void Generate(
-        RenameColumnOperation operation,
-        IModel? model,
-        MigrationCommandListBuilder builder)
+    /// <inheritdoc />
+    protected override void Generate(RenameColumnOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
         Check.NotNull(builder, nameof(builder));
@@ -1442,8 +1441,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
     }
 
     /// <summary>
-    /// Builds commands for the given <see cref="InsertDataOperation" /> by making calls on the given
-    /// <see cref="MigrationCommandListBuilder" />, and then terminates the final command.
+    ///     Builds commands for the given <see cref="InsertDataOperation" /> by making calls on the given
+    ///     <see cref="MigrationCommandListBuilder" />, and then terminates the final command.
     /// </summary>
     /// <param name="operation"> The operation. </param>
     /// <param name="model"> The target model which may be <c>null</c> if the operations exist without a model. </param>
@@ -1461,13 +1460,15 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         var sqlBuilder = new StringBuilder();
         foreach (var modificationCommand in GenerateModificationCommands(operation, model))
         {
-            var overridingSystemValue = modificationCommand.ColumnModifications.Any(m =>
-                m.Property?.GetValueGenerationStrategy() == KdbndpValueGenerationStrategy.IdentityAlwaysColumn);
+            var overridingSystemValue = modificationCommand.ColumnModifications.Any(
+                m =>
+                    m.Property?.GetValueGenerationStrategy() == KdbndpValueGenerationStrategy.IdentityAlwaysColumn);
             ((KdbndpUpdateSqlGenerator)Dependencies.UpdateSqlGenerator).AppendInsertOperation(
                 sqlBuilder,
                 modificationCommand,
                 0,
-                overridingSystemValue);
+                overridingSystemValue,
+                out _);
         }
 
         builder.Append(sqlBuilder.ToString());
@@ -1478,11 +1479,12 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
     }
 
+    /// <inheritdoc />
     protected override void Generate(CreateSequenceOperation operation, IModel? model, MigrationCommandListBuilder builder)
     {
         Check.NotNull(operation, nameof(operation));
 
-        if (_postgresVersion.AtLeast(10, 0))
+        if (_postgresVersion.AtLeast(10))
         {
             base.Generate(operation, model, builder);
         }
@@ -1502,6 +1504,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
     #region Utilities
 
+    /// <inheritdoc />
     protected override void ColumnDefinition(
         string? schema,
         string table,
@@ -1546,7 +1549,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             }
         }
 
-        ApplyTsVectorColumnSql(operation, model, schema, table);
+        ApplyTsVectorColumnSql(operation, model, operation.Name, schema, table);
 
         if (operation.ComputedColumnSql is not null)
         {
@@ -1569,9 +1572,14 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
 
         // If a collation was defined on the column specifically, via the standard EF mechanism, it will be
-        // available in operation.Collation (as usual). If not, there may be a model-wide default column collation,
-        // which gets transmitted via the Kdbndp-specific annotation.
-        if ((operation.Collation ?? operation[KdbndpAnnotationNames.DefaultColumnCollation]) is string collation)
+        // available in operation.Collation (as usual).
+        // If not, there may be a model-wide default column collation, which gets transmitted via the Kdbndp-specific annotation.
+        // This mechanism is obsolete, and EF Core's bulk model configuration can be used instead; but we continue to support it for
+        // backwards compat.
+#pragma warning disable CS0618
+        var collation = (string?)(operation.Collation ?? operation[KdbndpAnnotationNames.DefaultColumnCollation]);
+#pragma warning restore CS0618
+        if (collation is not null)
         {
             builder
                 .Append(" COLLATE ")
@@ -1584,17 +1592,40 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         }
         else
         {
-            builder.Append(operation.IsNullable ? " NULL" : " NOT NULL");
+            if (!operation.IsNullable)
+            {
+                builder.Append(" NOT NULL");
+            }
 
             DefaultValue(operation.DefaultValue, operation.DefaultValueSql, columnType, builder);
         }
     }
 
+    /// <inheritdoc />
+    protected override void DefaultValue(
+        object? defaultValue,
+        string? defaultValueSql,
+        string? columnType,
+        MigrationCommandListBuilder builder)
+    {
+        // This is a hacky workaround for https://github.com/dotnet/efcore/issues/32353 - the EF MigrationsModelDiffer generates an empty
+        // string as the default value for JSON columns, but that's not valid as a JSON document and rejected by PG's jsonb type. So we
+        // replace the empty string with an empty JSON document {}.
+        // Note that even after the EF-side issue is fixed, removing this hack is a breaking change as migrations have already been
+        // scaffolded with an empty string.
+        if (columnType is "jsonb" or "json" && defaultValue is "")
+        {
+            defaultValue = "{}";
+        }
+
+        base.DefaultValue(defaultValue, defaultValueSql, columnType, builder);
+    }
+
     /// <summary>
-    /// Checks for a <see cref="KdbndpAnnotationNames.TsVectorConfig"/> annotation on the given column, and if found, assigns
-    /// the appropriate SQL to <see cref="ColumnOperation.ComputedColumnSql"/>.
+    ///     Checks for a <see cref="KdbndpAnnotationNames.TsVectorConfig" /> annotation on the given column, and if found, assigns
+    ///     the appropriate SQL to <see cref="ColumnOperation.ComputedColumnSql" />.
     /// </summary>
-    protected virtual void ApplyTsVectorColumnSql(ColumnOperation column, IModel? model, string? schema, string table)
+    protected virtual void ApplyTsVectorColumnSql(ColumnOperation column, IModel? model, string name, string? schema, string table)
     {
         if (column[KdbndpAnnotationNames.TsVectorConfig] is string tsVectorConfig)
         {
@@ -1602,11 +1633,11 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             if (tsVectorIncludedColumns is null)
             {
                 throw new InvalidOperationException(
-                    $"{nameof(KdbndpAnnotationNames.TsVectorConfig)} is present in a migration but " +
-                    $"{nameof(KdbndpAnnotationNames.TsVectorProperties)} is absent or empty");
+                    $"{nameof(KdbndpAnnotationNames.TsVectorConfig)} is present in a migration but "
+                    + $"{nameof(KdbndpAnnotationNames.TsVectorProperties)} is absent or empty");
             }
 
-            column.ComputedColumnSql = ColumnsToTsVector(tsVectorIncludedColumns, tsVectorConfig, model, schema, table);
+            column.ComputedColumnSql = ColumnsToTsVector(name, tsVectorIncludedColumns, tsVectorConfig, model, schema, table);
             column.IsStored = true;
 
             column.RemoveAnnotation(KdbndpAnnotationNames.TsVectorConfig);
@@ -1614,19 +1645,21 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
     }
 
     // Note: this definition is only used for creating new identity columns, not for alterations.
+    /// <inheritdoc />
     protected virtual void IdentityDefinition(
         ColumnOperation operation,
         MigrationCommandListBuilder builder)
     {
-        if (!(operation[KdbndpAnnotationNames.ValueGenerationStrategy] is KdbndpValueGenerationStrategy strategy) ||
-            !strategy.IsIdentity())
+        if (operation[KdbndpAnnotationNames.ValueGenerationStrategy] is not KdbndpValueGenerationStrategy strategy
+            || !strategy.IsIdentity())
         {
             return;
         }
 
-        builder.Append(strategy == KdbndpValueGenerationStrategy.IdentityByDefaultColumn
-            ? " GENERATED BY DEFAULT AS IDENTITY"
-            : " GENERATED ALWAYS AS IDENTITY");
+        builder.Append(
+            strategy == KdbndpValueGenerationStrategy.IdentityByDefaultColumn
+                ? " GENERATED BY DEFAULT AS IDENTITY"
+                : " GENERATED ALWAYS AS IDENTITY");
 
         // Handle sequence options for the identity column
         if (operation[KdbndpAnnotationNames.IdentityOptions] is string identitySequenceOptions)
@@ -1763,8 +1796,8 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         if (operation.IsStored != true)
         {
             throw new NotSupportedException(
-                "Generated columns currently must be stored, specify 'stored: true' in " +
-                $"'{nameof(RelationalPropertyBuilderExtensions.HasComputedColumnSql)}' in your context's OnModelCreating.");
+                "Generated columns currently must be stored, specify 'stored: true' in "
+                + $"'{nameof(RelationalPropertyBuilderExtensions.HasComputedColumnSql)}' in your context's OnModelCreating.");
         }
 
         builder
@@ -1783,6 +1816,11 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             .Append(" GENERATED ALWAYS AS (")
             .Append(operation.ComputedColumnSql!)
             .Append(") STORED");
+
+        if (!operation.IsNullable)
+        {
+            builder.Append(" NOT NULL");
+        }
     }
 
 #pragma warning disable 618
@@ -1792,13 +1830,14 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
     {
         if (annotatable.FindAnnotation(KdbndpAnnotationNames.ValueGeneratedOnAdd) is not null)
         {
-            throw new NotSupportedException("The Kdbndp:ValueGeneratedOnAdd annotation has been found in your migrations, but is no longer supported. Please replace it with '.Annotation(\"Kdbndp:ValueGenerationStrategy\", KdbndpValueGenerationStrategy.SerialColumn)' where you want KingbaseES serial (autoincrement) columns, and remove it in all other cases.");
+            throw new NotSupportedException(
+                "The Kdbndp:ValueGeneratedOnAdd annotation has been found in your migrations, but is no longer supported. Please replace it with '.Annotation(\"Kdbndp:ValueGenerationStrategy\", KdbndpValueGenerationStrategy.SerialColumn)' where you want KingbaseES serial (autoincrement) columns, and remove it in all other cases.");
         }
     }
 #pragma warning restore 618
 
     /// <summary>
-    /// Renames a database object such as a table, index, or sequence.
+    ///     Renames a database object such as a table, index, or sequence.
     /// </summary>
     /// <param name="schema">The current schema of the object to rename.</param>
     /// <param name="name">The current name of the object to rename.</param>
@@ -1828,7 +1867,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
     }
 
     /// <summary>
-    /// Transfers a database object such as a table, index, or sequence between schemas.
+    ///     Transfers a database object such as a table, index, or sequence between schemas.
     /// </summary>
     /// <param name="newSchema">The new schema.</param>
     /// <param name="schema">The current schema.</param>
@@ -1857,6 +1896,7 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             .AppendLine(";");
     }
 
+    /// <inheritdoc />
     protected virtual void RecreateIndexes(IColumn? column, MigrationOperation currentOperation, MigrationCommandListBuilder builder)
     {
         foreach (var index in GetIndexesToRebuild())
@@ -1900,54 +1940,114 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
     #region System column utilities
 
-    private bool IsSystemColumn(string name) => SystemColumnNames.Contains(name);
+    private bool IsSystemColumn(string name)
+        => name == "oid" && _postgresVersion.IsUnder(12) || SystemColumnNames.Contains(name);
 
     /// <summary>
-    /// Tables in KingbaseES implicitly have a set of system columns, which are always there.
-    /// We want to allow users to access these columns (i.e. xmin for optimistic concurrency) but
-    /// they should never generate migration operations.
+    ///     Tables in KingbaseES implicitly have a set of system columns, which are always there.
+    ///     We want to allow users to access these columns (i.e. xmin for optimistic concurrency) but
+    ///     they should never generate migration operations.
     /// </summary>
     /// <remarks>
-    /// https://www.KingbaseES.org/docs/current/static/ddl-system-columns.html
+    ///     https://www.KingbaseES.org/docs/current/static/ddl-system-columns.html
     /// </remarks>
-    private static readonly string[] SystemColumnNames = { "oid", "tableoid", "xmin", "cmin", "xmax", "cmax", "ctid" };
+    private static readonly string[] SystemColumnNames = { "tableoid", "xmin", "cmin", "xmax", "cmax", "ctid" };
 
     #endregion System column utilities
 
     #region Storage parameter utilities
+
+    private void AppendStoreParameters(Annotatable annotatable, MigrationCommandListBuilder builder, bool withLeadingNewline)
+    {
+        var storageParameters = GetStorageParameters(annotatable);
+        if (storageParameters.Count > 0)
+        {
+            if (withLeadingNewline)
+            {
+                builder.AppendLine();
+            }
+            else
+            {
+                builder.Append(" ");
+            }
+
+            builder
+                .Append("WITH (")
+                .Append(string.Join(", ", storageParameters.Select(p => $"{p.Key}={p.Value}")))
+                .Append(")");
+        }
+    }
 
     private Dictionary<string, string> GetStorageParameters(Annotatable annotatable)
         => annotatable.GetAnnotations()
             .Where(a => a.Name.StartsWith(KdbndpAnnotationNames.StorageParameterPrefix, StringComparison.Ordinal))
             .ToDictionary(
                 a => a.Name.Substring(KdbndpAnnotationNames.StorageParameterPrefix.Length),
-                a => GenerateStorageParameterValue(a.Value!)
-            );
+                a => a.Value switch
+                {
+                    bool b => b ? "true" : "false",
+                    string s => $"'{s}'",
+                    _ => a.Value!.ToString()!
+                });
 
-    private static string GenerateStorageParameterValue(object value)
+    // TODO: Call this for AlterIndexOperation when that's added (https://github.com/dotnet/efcore/issues/20692)
+    private bool AppendStorageParameterAlterations(
+        Annotatable oldAnnotatable,
+        Annotatable newAnnotatable,
+        string alterBaseSql,
+        MigrationCommandListBuilder builder)
     {
-        if (value is bool)
+        var madeChanges = false;
+
+        var oldStorageParameters = GetStorageParameters(oldAnnotatable);
+        var newStorageParameters = GetStorageParameters(newAnnotatable);
+
+        var newOrChanged = newStorageParameters.Where(
+                p =>
+                    !oldStorageParameters.ContainsKey(p.Key) || oldStorageParameters[p.Key] != p.Value)
+            .ToList();
+
+        if (newOrChanged.Count > 0)
         {
-            return (bool)value ? "true" : "false";
+            builder
+                .Append(alterBaseSql)
+                .Append(" SET (")
+                .Append(string.Join(", ", newOrChanged.Select(p => $"{p.Key}={p.Value}")))
+                .Append(")");
+
+            builder.AppendLine(";");
+            madeChanges = true;
         }
 
-        if (value is string)
+        var removed = oldStorageParameters
+            .Select(p => p.Key)
+            .Where(pn => !newStorageParameters.ContainsKey(pn))
+            .ToList();
+
+        if (removed.Count > 0)
         {
-            return $"'{value}'";
+            builder
+                .Append(alterBaseSql)
+                .Append(" RESET (")
+                .Append(string.Join(", ", removed))
+                .Append(")");
+
+            builder.AppendLine(";");
+            madeChanges = true;
         }
 
-        return value.ToString()!;
+        return madeChanges;
     }
 
     #endregion Storage parameter utilities
 
     #region Helpers
 
-    private string DelimitIdentifier(string identifier) =>
-        Dependencies.SqlGenerationHelper.DelimitIdentifier(identifier);
+    private string DelimitIdentifier(string identifier)
+        => Dependencies.SqlGenerationHelper.DelimitIdentifier(identifier);
 
-    private string DelimitIdentifier(string name, string? schema) =>
-        Dependencies.SqlGenerationHelper.DelimitIdentifier(name, schema);
+    private string DelimitIdentifier(string name, string? schema)
+        => Dependencies.SqlGenerationHelper.DelimitIdentifier(name, schema);
 
     private string IndexColumnList(IndexColumn[] columns, string? method)
     {
@@ -1981,9 +2081,9 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
             // Of the built-in access methods, only btree (the default) supports
             // sorting, thus we only want to emit sort options for btree indexes.
-            if (method is null || method == "btree")
+            if (method is null or "btree")
             {
-                if (column.SortOrder == SortOrder.Descending)
+                if (column.IsDescending)
                 {
                     builder.Append(" DESC");
                 }
@@ -1994,9 +2094,14 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
                     switch (column.NullSortOrder)
                     {
-                        case NullSortOrder.NullsFirst: builder.Append("FIRST"); break;
-                        case NullSortOrder.NullsLast: builder.Append("LAST"); break;
-                        default: throw new ArgumentOutOfRangeException();
+                        case NullSortOrder.NullsFirst:
+                            builder.Append("FIRST");
+                            break;
+                        case NullSortOrder.NullsLast:
+                            builder.Append("LAST");
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
                     }
                 }
             }
@@ -2007,25 +2112,66 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         return builder.ToString();
     }
 
-    private string ColumnsToTsVector(IEnumerable<string> columns, string tsVectorConfig, IModel? model, string? schema, string table)
+    private string ColumnsToTsVector(
+        string columnOrIndexName,
+        IEnumerable<string> columnNames,
+        string tsVectorConfig,
+        IModel? model,
+        string? schema,
+        string table)
     {
-        return new StringBuilder()
-            .Append("to_tsvector(")
-            .Append(_stringTypeMapping.GenerateSqlLiteral(tsVectorConfig))
-            .Append(", ")
-            .Append(string.Join(" || ' ' || ", columns.Select(GetTsVectorColumnExpression)))
-            .Append(")")
-            .ToString();
+        var columns = columnNames
+            .Select(columnName => model?.GetRelationalModel().FindTable(table, schema)?.Columns.FirstOrDefault(c => c.Name == columnName))
+            .ToArray();
 
-        string GetTsVectorColumnExpression(string columnName)
+        IEnumerable<IGrouping<string, IColumn>> columnGroups = columns
+            .GroupBy(
+                c => c?.StoreType switch
+                {
+                    "json" => "json",
+                    "jsonb" => "jsonb",
+                    null => "null",
+                    _ => "text"
+
+                    // Note: we currently don't support array_to_tsvector since it doesn't accept a search configuration
+                })!;
+
+        var tsVectorConfigLiteral = _stringTypeMapping.GenerateSqlLiteral(tsVectorConfig);
+
+        var builder = new StringBuilder();
+
+        foreach (var columnGroup in columnGroups)
         {
-            var delimitedColumnName = DelimitIdentifier(columnName);
-            var column = model?.GetRelationalModel()
-                .FindTable(table, schema)?.Columns.FirstOrDefault(c => c.Name == columnName);
-            return column?.IsNullable != false
-                ? $"coalesce({delimitedColumnName}, '')"
-                : delimitedColumnName;
+            if (builder.Length > 0)
+            {
+                builder.Append(" || ");
+            }
+
+            builder.Append(
+                columnGroup.Key switch
+                {
+                    "text" => $"to_tsvector({tsVectorConfigLiteral}, {string.Join(" || ' ' || ", columnGroup.Select(TextColumn))})",
+                    "json" => string.Join(
+                        " || ", columnGroup.Select(
+                            c =>
+                                $@"json_to_tsvector({tsVectorConfigLiteral}, {JsonColumn(c)}, '""all""')")),
+                    "jsonb" => string.Join(
+                        " || ", columnGroup.Select(
+                            c =>
+                                $@"jsonb_to_tsvector({tsVectorConfigLiteral}, {JsonColumn(c)}, '""all""')")),
+                    "null" => throw new InvalidOperationException(
+                        $"Column or index {columnOrIndexName} refers to unknown column in tsvector definition"),
+                    _ => throw new ArgumentOutOfRangeException()
+                });
         }
+
+        return builder.ToString();
+
+        string TextColumn(IColumn column)
+            => column.IsNullable ? $"coalesce({DelimitIdentifier(column.Name)}, '')" : DelimitIdentifier(column.Name);
+
+        string JsonColumn(IColumn column)
+            => column.IsNullable ? $"coalesce({DelimitIdentifier(column.Name)}, '{{}}')" : DelimitIdentifier(column.Name);
     }
 
     private static bool TryParseSchema(string identifier, out string name, out string? schema)
@@ -2049,7 +2195,11 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
         var collations = operation[RelationalAnnotationNames.Collation] as string[];
 
         var operators = operation[KdbndpAnnotationNames.IndexOperators] as string[];
-        var sortOrders = operation[KdbndpAnnotationNames.IndexSortOrder] as SortOrder[];
+
+        // We used to have our own annotation-based descending index mechanism, this got replaced with IsDescending in EF Core 7.0.
+        var isDescendingValues = operation.IsDescending;
+        var legacySortOrders = operation[KdbndpAnnotationNames.IndexSortOrder] as SortOrder[];
+
         var nullSortOrders = operation[KdbndpAnnotationNames.IndexNullSortOrder] as NullSortOrder[];
 
         var columns = new IndexColumn[operation.Columns.Length];
@@ -2059,10 +2209,12 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
             var name = operation.Columns[i];
             var @operator = i < operators?.Length ? operators[i] : null;
             var collation = i < collations?.Length ? collations[i] : null;
-            var sortOrder = i < sortOrders?.Length ? sortOrders[i] : SortOrder.Ascending;
+            var isColumnDescending = isDescendingValues is not null
+                ? isDescendingValues.Length == 0 || isDescendingValues[i]
+                : i < legacySortOrders?.Length && legacySortOrders[i] == SortOrder.Descending;
             var nullSortOrder = i < nullSortOrders?.Length ? nullSortOrders[i] : NullSortOrder.Unspecified;
 
-            columns[i] = new IndexColumn(name, @operator, collation, sortOrder, nullSortOrder);
+            columns[i] = new IndexColumn(name, @operator, collation, isColumnDescending, nullSortOrder);
         }
 
         return columns;
@@ -2070,19 +2222,19 @@ public class KdbndpMigrationsSqlGenerator : MigrationsSqlGenerator
 
     private readonly struct IndexColumn
     {
-        public IndexColumn(string name, string? @operator, string? collation, SortOrder sortOrder, NullSortOrder nullSortOrder)
+        public IndexColumn(string name, string? @operator, string? collation, bool isDescending, NullSortOrder nullSortOrder)
         {
             Name = name;
             Operator = @operator;
             Collation = collation;
-            SortOrder = sortOrder;
+            IsDescending = isDescending;
             NullSortOrder = nullSortOrder;
         }
 
         public string Name { get; }
         public string? Operator { get; }
         public string? Collation { get; }
-        public SortOrder SortOrder { get; }
+        public bool IsDescending { get; }
         public NullSortOrder NullSortOrder { get; }
     }
 

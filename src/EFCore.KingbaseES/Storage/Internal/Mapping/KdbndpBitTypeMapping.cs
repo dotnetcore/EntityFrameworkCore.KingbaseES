@@ -1,31 +1,59 @@
 ﻿using System.Collections;
-using System.Linq.Expressions;
-using System.Reflection;
 using System.Text;
-using Microsoft.EntityFrameworkCore.Storage;
-using KdbndpTypes;
+using Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Json;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
 /// <summary>
-/// The type mapping for the KingbaseES bit string type.
+///     The type mapping for the KingbaseES bit string type.
 /// </summary>
 /// <remarks>
-/// See: https://www.KingbaseES.org/docs/current/static/datatype-bit.html
+///     See: https://www.KingbaseES.org/docs/current/static/datatype-bit.html
 /// </remarks>
 public class KdbndpBitTypeMapping : KdbndpTypeMapping
 {
     /// <summary>
-    /// Constructs an instance of the <see cref="KdbndpBitTypeMapping"/> class.
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public KdbndpBitTypeMapping() : base("bit", typeof(BitArray), KdbndpDbType.Bit) {}
+    public static KdbndpBitTypeMapping Default { get; } = new();
 
+    /// <summary>
+    ///     Constructs an instance of the <see cref="KdbndpBitTypeMapping" /> class.
+    /// </summary>
+    public KdbndpBitTypeMapping()
+        : base("bit", typeof(BitArray), KdbndpDbType.Bit, jsonValueReaderWriter: JsonBitArrayReaderWriter.Instance)
+    {
+    }
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected KdbndpBitTypeMapping(RelationalTypeMappingParameters parameters)
-        : base(parameters, KdbndpDbType.Bit) {}
+        : base(parameters, KdbndpDbType.Bit)
+    {
+    }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new KdbndpBitTypeMapping(parameters);
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     protected override string GenerateNonNullSqlLiteral(object value)
     {
         var bits = (BitArray)value;
@@ -40,6 +68,12 @@ public class KdbndpBitTypeMapping : KdbndpTypeMapping
         return sb.ToString();
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override Expression GenerateCodeLiteral(object value)
     {
         var bits = (BitArray)value;

@@ -1,6 +1,3 @@
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions;
-using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Conventions;
@@ -11,7 +8,7 @@ namespace Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Conventions;
 public class KdbndpSharedTableConvention : SharedTableConvention
 {
     /// <summary>
-    /// Creates a new instance of <see cref="KdbndpSharedTableConvention" />.
+    ///     Creates a new instance of <see cref="KdbndpSharedTableConvention" />.
     /// </summary>
     /// <param name="dependencies">Parameter object containing dependencies for this convention.</param>
     /// <param name="relationalDependencies">Parameter object containing relational dependencies for this convention.</param>

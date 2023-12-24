@@ -1,20 +1,8 @@
-using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
-using System.Diagnostics;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.EntityFrameworkCore.Scaffolding;
-using Microsoft.EntityFrameworkCore.Scaffolding.Metadata;
-using Microsoft.EntityFrameworkCore.Utilities;
-using Microsoft.Extensions.Logging;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Metadata.Internal;
@@ -23,20 +11,14 @@ using Kdbndp.EntityFrameworkCore.KingbaseES.Utilities;
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Scaffolding.Internal;
 
 /// <summary>
-/// The default database model factory for Kdbndp.
+///     The default database model factory for Kdbndp.
 /// </summary>
 public class KdbndpDatabaseModelFactory : DatabaseModelFactory
 {
     #region Fields
 
-    /// <summary>
-    /// The regular expression formatting string for schema and/or table names.
-    /// </summary>
     private const string NamePartRegex = @"(?:(?:""(?<part{0}>(?:(?:"""")|[^""])+)"")|(?<part{0}>[^\.\[""]+))";
 
-    /// <summary>
-    /// The <see cref="Regex"/> to extract the schema and/or table names.
-    /// </summary>
     private static readonly Regex SchemaTableNameExtractor =
         new(
             string.Format(
@@ -47,14 +29,8 @@ public class KdbndpDatabaseModelFactory : DatabaseModelFactory
             RegexOptions.Compiled,
             TimeSpan.FromMilliseconds(1000.0));
 
-    /// <summary>
-    /// The types used for serial columns.
-    /// </summary>
     private static readonly string[] SerialTypes = { "int2", "int4", "int8" };
 
-    /// <summary>
-    /// The diagnostic logger instance.
-    /// </summary>
     private readonly IDiagnosticsLogger<DbLoggerCategory.Scaffolding> _logger;
 
     #endregion
@@ -62,10 +38,12 @@ public class KdbndpDatabaseModelFactory : DatabaseModelFactory
     #region Public surface
 
     /// <summary>
-    /// Constructs an instance of the <see cref="KdbndpDatabaseModelFactory"/> class.
+    ///     Constructs an instance of the <see cref="KdbndpDatabaseModelFactory" /> class.
     /// </summary>
     public KdbndpDatabaseModelFactory(IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
-        => _logger = Check.NotNull(logger, nameof(logger));
+    {
+        _logger = Check.NotNull(logger, nameof(logger));
+    }
 
     /// <inheritdoc />
     public override DatabaseModel Create(string connectionString, DatabaseModelFactoryOptions options)
@@ -96,7 +74,7 @@ public class KdbndpDatabaseModelFactory : DatabaseModelFactory
 
         try
         {
-            var internalSchemas = "'sys_catalog', 'information_schema'";
+            var internalSchemas = "'pg_catalog', 'information_schema'";
             using (var command = new KdbndpCommand("SELECT version()", connection))
             {
                 var longVersion = (string)command.ExecuteScalar()!;
@@ -126,7 +104,7 @@ public class KdbndpDatabaseModelFactory : DatabaseModelFactory
 
             foreach (var table in databaseModel.Tables)
             {
-                while (table.Columns.Remove(null!)) {}
+                while (table.Columns.Remove(null!)) { }
             }
 
             foreach (var sequence in GetSequences(connection, databaseModel, schemaFilter, _logger))
@@ -148,7 +126,7 @@ public class KdbndpDatabaseModelFactory : DatabaseModelFactory
                 // We may have dropped or skipped columns. We load these because constraints take them into
                 // account when referencing columns, but must now get rid of them before returning
                 // the database model.
-                while (table.Columns.Remove(null!)) {}
+                while (table.Columns.Remove(null!)) { }
             }
 
             foreach (var schema in schemaList
@@ -183,9 +161,16 @@ public class KdbndpDatabaseModelFactory : DatabaseModelFactory
 
     private static void PopulateGlobalDatabaseInfo(KdbndpConnection connection, DatabaseModel databaseModel)
     {
-        var commandText = @"
-SELECT datcollate FROM sys_database WHERE datname=current_database() AND
-        datcollate <> (SELECT datcollate FROM sys_database WHERE datname='template1')";
+        if (connection.KingbaseESVersion < new Version(8, 4))
+        {
+            return;
+        }
+
+        var commandText = """
+SELECT datcollate
+FROM pg_database
+WHERE datname=current_database() AND datcollate <> (SELECT datcollate FROM pg_database WHERE datname='template1')
+""";
         using var command = new KdbndpCommand(commandText, connection);
         using var reader = command.ExecuteReader();
         if (reader.Read())
@@ -195,7 +180,7 @@ SELECT datcollate FROM sys_database WHERE datname=current_database() AND
     }
 
     /// <summary>
-    /// Queries the database for defined tables and registers them with the model.
+    ///     Queries the database for defined tables and registers them with the model.
     /// </summary>
     private static IEnumerable<DatabaseTable> GetTables(
         KdbndpConnection connection,
@@ -206,28 +191,31 @@ SELECT datcollate FROM sys_database WHERE datname=current_database() AND
         IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
     {
         var filter = tableFilter is not null ? $"AND {tableFilter("ns.nspname", "cls.relname")}" : null;
-        var commandText = $@"
-SELECT nspname, relname, relkind, description
-FROM sys_class AS cls
-JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
-LEFT OUTER JOIN sys_description AS des ON des.objoid = cls.oid AND des.objsubid=0
+        var commandText = $"""
+SELECT
+    nspname, relname, relkind, description,
+    {(connection.KingbaseESVersion >= new Version(8, 2) ? "reloptions" : "'{}'::text[] AS reloptions")}
+FROM pg_class AS cls
+JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+LEFT OUTER JOIN pg_description AS des ON des.objoid = cls.oid AND des.objsubid=0
 WHERE
   cls.relkind IN ('r', 'v', 'm', 'f') AND
   ns.nspname NOT IN ({internalSchemas}) AND
   cls.relname <> '{HistoryRepository.DefaultTableName}' AND
   -- Exclude tables which are members of PG extensions
   NOT EXISTS (
-    SELECT 1 FROM sys_depend WHERE
+    SELECT 1 FROM pg_depend WHERE
       classid=(
         SELECT cls.oid
-        FROM sys_class AS cls
-        JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
-        WHERE relname='sys_class' AND ns.nspname='sys_catalog'
+        FROM pg_class AS cls
+        JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+        WHERE relname='pg_class' AND ns.nspname='pg_catalog'
       ) AND
       objid=cls.oid AND
       deptype IN ('e', 'x')
   )
-  {filter}";
+  {filter}
+""";
 
         var tables = new List<DatabaseTable>();
 
@@ -240,6 +228,7 @@ WHERE
                 var name = reader.GetString("relname");
                 var type = reader.GetChar("relkind");
                 var comment = reader.GetValueOrDefault<string>("description");
+                var storageParameters = reader.GetValueOrDefault<string[]>("reloptions") ?? Array.Empty<string>();
 
                 var table = type switch
                 {
@@ -255,6 +244,14 @@ WHERE
                 table.Schema = schema;
                 table.Comment = comment;
 
+                foreach (var storageParameter in storageParameters)
+                {
+                    if (storageParameter.Split("=") is [var paramName, var paramValue])
+                    {
+                        table[KdbndpAnnotationNames.StorageParameterPrefix + paramName] = paramValue;
+                    }
+                }
+
                 tables.Add(table);
             }
         }
@@ -266,7 +263,7 @@ WHERE
     }
 
     /// <summary>
-    /// Queries the database for defined columns and registers them with the model.
+    ///     Queries the database for defined columns and registers them with the model.
     /// </summary>
     private static void GetColumns(
         KdbndpConnection connection,
@@ -276,7 +273,7 @@ WHERE
         HashSet<string> enums,
         IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
     {
-        var commandText = $@"
+        var commandText = $"""
 SELECT
   nspname,
   cls.relname,
@@ -292,32 +289,32 @@ SELECT
   format_type(typ.oid, atttypmod) AS formatted_typname,
   format_type(basetyp.oid, typ.typtypmod) AS formatted_basetypname,
   CASE
-    WHEN sys_proc.proname = 'array_recv' THEN 'a'
+    WHEN pg_proc.proname = 'array_recv' THEN 'a'
     ELSE typ.typtype
   END AS typtype,
-  CASE WHEN sys_proc.proname='array_recv' THEN elemtyp.typname END AS elemtypname,
+  CASE WHEN pg_proc.proname='array_recv' THEN elemtyp.typname END AS elemtypname,
   NOT (attnotnull OR typ.typnotnull) AS nullable,
   CASE
-    WHEN atthasdef THEN (SELECT sys_get_expr(adbin, cls.oid) FROM sys_attrdef WHERE adrelid = cls.oid AND adnum = attr.attnum)
+    WHEN atthasdef THEN (SELECT pg_get_expr(adbin, cls.oid) FROM pg_attrdef WHERE adrelid = cls.oid AND adnum = attr.attnum)
   END AS default,
 
   -- Sequence options for identity columns
   {(connection.KingbaseESVersion >= new Version(10, 0) ?
-      "format_type(seqtypid, 0) AS seqtype, seqstart, seqmin, seqmax, seqincrement, seqcycle, seqcache" :
-      "NULL AS seqtype, NULL AS seqstart, NULL AS seqmin, NULL AS seqmax, NULL AS seqincrement, NULL AS seqcycle, NULL AS seqcache")}
+        "format_type(seqtypid, 0) AS seqtype, seqstart, seqmin, seqmax, seqincrement, seqcycle, seqcache" :
+        "NULL AS seqtype, NULL AS seqstart, NULL AS seqmin, NULL AS seqmax, NULL AS seqincrement, NULL AS seqcycle, NULL AS seqcache")}
 
-FROM sys_class AS cls
-JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
-LEFT JOIN sys_attribute AS attr ON attrelid = cls.oid
-LEFT JOIN sys_type AS typ ON attr.atttypid = typ.oid
-LEFT JOIN sys_proc ON sys_proc.oid = typ.typreceive
-LEFT JOIN sys_type AS elemtyp ON (elemtyp.oid = typ.typelem)
-LEFT JOIN sys_type AS basetyp ON (basetyp.oid = typ.typbasetype)
-LEFT JOIN sys_description AS des ON des.objoid = cls.oid AND des.objsubid = attnum
-{(connection.KingbaseESVersion >= new Version(9, 1) ? "LEFT JOIN sys_collation as coll ON coll.oid = attr.attcollation" : "")}
+FROM pg_class AS cls
+JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+LEFT JOIN pg_attribute AS attr ON attrelid = cls.oid
+LEFT JOIN pg_type AS typ ON attr.atttypid = typ.oid
+LEFT JOIN pg_proc ON pg_proc.oid = typ.typreceive
+LEFT JOIN pg_type AS elemtyp ON (elemtyp.oid = typ.typelem)
+LEFT JOIN pg_type AS basetyp ON (basetyp.oid = typ.typbasetype)
+LEFT JOIN pg_description AS des ON des.objoid = cls.oid AND des.objsubid = attnum
+{(connection.KingbaseESVersion >= new Version(9, 1) ? "LEFT JOIN pg_collation as coll ON coll.oid = attr.attcollation" : "")}
 -- Bring in identity sequences the depend on this column
-LEFT JOIN sys_depend AS dep ON dep.refobjid = cls.oid AND dep.refobjsubid = attr.attnum AND dep.deptype = 'i'
-{(connection.KingbaseESVersion >= new Version(10, 0) ? "LEFT JOIN sys_sequence AS seq ON seq.seqrelid = dep.objid" : "")}
+LEFT JOIN pg_depend AS dep ON dep.refobjid = cls.oid AND dep.refobjsubid = attr.attnum AND dep.deptype = 'i'
+{(connection.KingbaseESVersion >= new Version(10, 0) ? "LEFT JOIN pg_sequence AS seq ON seq.seqrelid = dep.objid" : "")}
 WHERE
   cls.relkind IN ('r', 'v', 'm', 'f') AND
   nspname NOT IN ({internalSchemas}) AND
@@ -325,25 +322,27 @@ WHERE
   cls.relname <> '{HistoryRepository.DefaultTableName}' AND
   -- Exclude tables which are members of PG extensions
   NOT EXISTS (
-    SELECT 1 FROM sys_depend WHERE
+    SELECT 1 FROM pg_depend WHERE
       classid=(
         SELECT cls.oid
-        FROM sys_class AS cls
-        JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
-        WHERE relname='sys_class' AND ns.nspname='sys_catalog'
+        FROM pg_class AS cls
+        JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+        WHERE relname='pg_class' AND ns.nspname='pg_catalog'
       ) AND
       objid=cls.oid AND
       deptype IN ('e', 'x')
   )
   {tableFilter}
-ORDER BY attnum";
+ORDER BY attnum
+""";
 
         using var command = new KdbndpCommand(commandText, connection);
         using var reader = command.ExecuteReader();
 
-        var tableGroups = reader.Cast<DbDataRecord>().GroupBy(ddr => (
-            tableSchema: ddr.GetFieldValue<string>("nspname"),
-            tableName: ddr.GetFieldValue<string>("relname")));
+        var tableGroups = reader.Cast<DbDataRecord>().GroupBy(
+            ddr => (
+                tableSchema: ddr.GetFieldValue<string>("nspname"),
+                tableName: ddr.GetFieldValue<string>("relname")));
 
         foreach (var tableGroup in tableGroups)
         {
@@ -380,8 +379,7 @@ ORDER BY attnum";
 
                 // Enum types cannot be scaffolded for now (nor can domains of enum types),
                 // skip with an informative message
-                if (enums.Contains(formattedTypeName) ||
-                    formattedBaseTypeName is not null && enums.Contains(formattedBaseTypeName))
+                if (enums.Contains(formattedTypeName) || formattedBaseTypeName is not null && enums.Contains(formattedBaseTypeName))
                 {
                     logger.EnumColumnSkippedWarning($"{DisplayName(tableSchema, tableName)}.{column.Name}");
                     // We need to know about skipped columns because constraints take them into
@@ -391,14 +389,16 @@ ORDER BY attnum";
                 }
 
                 // Default values and KingbaseES 12 generated columns
+                var defaultValueSql = record.GetValueOrDefault<string>("default");
                 if (record.GetFieldValue<string>("attgenerated") == "s")
                 {
-                    column.ComputedColumnSql = record.GetValueOrDefault<string>("default");
+                    column.ComputedColumnSql = defaultValueSql;
                     column.IsStored = true;
                 }
                 else
                 {
-                    column.DefaultValueSql = record.GetValueOrDefault<string>("default");
+                    column.DefaultValueSql = defaultValueSql;
+                    column.DefaultValue = ParseClrDefault(storeType, defaultValueSql);
                     AdjustDefaults(column, systemTypeName);
                 }
 
@@ -423,14 +423,14 @@ ORDER BY attnum";
                         if (SerialTypes.Contains(systemTypeName))
                         {
                             var seqName = $"{column.Table.Name}_{column.Name}_seq";
-                            if (column.Table.Schema == "public" &&
-                                (column.DefaultValueSql == $"nextval('{seqName}'::regclass)" ||
-                                    column.DefaultValueSql == $"nextval('\"{seqName}\"'::regclass)")
-                                ||  // non-public schema
-                                column.DefaultValueSql == $"nextval('{column.Table.Schema}.{seqName}'::regclass)" ||
-                                column.DefaultValueSql == $"nextval('{column.Table.Schema}.\"{seqName}\"'::regclass)" ||
-                                column.DefaultValueSql == $"nextval('\"{column.Table.Schema}\".{seqName}'::regclass)" ||
-                                column.DefaultValueSql == $"nextval('\"{column.Table.Schema}\".\"{seqName}\"'::regclass)")
+                            if (column.Table.Schema == "public"
+                                && (column.DefaultValueSql == $"nextval('{seqName}'::regclass)"
+                                    || column.DefaultValueSql == $"nextval('\"{seqName}\"'::regclass)")
+                                || // non-public schema
+                                column.DefaultValueSql == $"nextval('{column.Table.Schema}.{seqName}'::regclass)"
+                                || column.DefaultValueSql == $"nextval('{column.Table.Schema}.\"{seqName}\"'::regclass)"
+                                || column.DefaultValueSql == $"nextval('\"{column.Table.Schema}\".{seqName}'::regclass)"
+                                || column.DefaultValueSql == $"nextval('\"{column.Table.Schema}\".\"{seqName}\"'::regclass)")
                             {
                                 column.DefaultValueSql = null;
                                 // Serial is the default value generation strategy, so KdbndpAnnotationCodeGenerator
@@ -467,17 +467,17 @@ ORDER BY attnum";
                     }
                 }
 
-                if (record.GetValueOrDefault<string>("description") is string comment)
+                if (record.GetValueOrDefault<string>("description") is { } comment)
                 {
                     column.Comment = comment;
                 }
 
-                if (record.GetValueOrDefault<string>("collname") is string collation && collation != "default")
+                if (record.GetValueOrDefault<string>("collname") is { } collation && collation != "default")
                 {
                     column.Collation = collation;
                 }
 
-                if (record.GetValueOrDefault<string>("attcompression") is string compressionMethodChar)
+                if (record.GetValueOrDefault<string>("attcompression") is { } compressionMethodChar)
                 {
                     column[KdbndpAnnotationNames.CompressionMethod] = compressionMethodChar switch
                     {
@@ -501,8 +501,38 @@ ORDER BY attnum";
         }
     }
 
+    private static object? ParseClrDefault(string dataTypeName, string? defaultValueSql)
+    {
+        defaultValueSql = defaultValueSql?.Trim();
+
+        if (string.IsNullOrEmpty(defaultValueSql))
+        {
+            return null;
+        }
+
+        while (defaultValueSql.StartsWith('(') && defaultValueSql.EndsWith(')'))
+        {
+            defaultValueSql = (defaultValueSql.Substring(1, defaultValueSql.Length - 2)).Trim();
+        }
+
+        return dataTypeName switch
+        {
+            "bool" or "boolean" => defaultValueSql switch
+            {
+                "true" or "yes" or "on" or "1" => true,
+                "false" or "no" or "off" or "0" => false,
+                _ => null
+            },
+            "smallint" or "int2" => short.TryParse(defaultValueSql, CultureInfo.InvariantCulture, out var @short) ? @short : null,
+            "integer" or "int" or "int4" => int.TryParse(defaultValueSql, CultureInfo.InvariantCulture, out var @int) ? @int : null,
+            "bigint" or "int8" => long.TryParse(defaultValueSql, CultureInfo.InvariantCulture, out var @long) ? @long : null,
+
+            _ => null
+        };
+    }
+
     /// <summary>
-    /// Queries the database for defined indexes and registers them with the model.
+    ///     Queries the database for defined indexes and registers them with the model.
     /// </summary>
     private static void GetIndexes(
         KdbndpConnection connection,
@@ -512,12 +542,12 @@ ORDER BY attnum";
         List<uint> constraintIndexes,
         IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
     {
-        // Load the sys_opclass table (https://www.KingbaseES.org/docs/current/catalog-pg-opclass.html),
+        // Load the pg_opclass table (https://www.KingbaseES.org/docs/current/catalog-pg-opclass.html),
         // which is referenced by the indices we'll load below
         var opClasses = new Dictionary<uint, (string Name, bool IsDefault)>();
         try
         {
-            using var command = new KdbndpCommand("SELECT oid, opcname, opcdefault FROM sys_opclass", connection);
+            using var command = new KdbndpCommand("SELECT oid, opcname, opcdefault FROM pg_opclass", connection);
             using var reader = command.ExecuteReader();
 
             foreach (var opClass in reader.Cast<DbDataRecord>())
@@ -527,17 +557,18 @@ ORDER BY attnum";
                     opClass.GetFieldValue<bool>("opcdefault"));
             }
         }
-        catch (KingbaseException e)
+        catch (KdbndpException e)
         {
-            logger.Logger.LogWarning(e,
-                "Could not load index operator classes from _opclass. Operator classes will not be scaffolded");
+            logger.Logger.LogWarning(
+                e,
+                "Could not load index operator classes from pg_opclass. Operator classes will not be scaffolded");
         }
 
         var collations = new Dictionary<uint, string>();
 
         if (connection.KingbaseESVersion >= new Version(9, 1))
         {
-            using (var command = new KdbndpCommand("SELECT oid, collname FROM sys_collation", connection))
+            using (var command = new KdbndpCommand("SELECT oid, collname FROM pg_collation", connection))
             using (var reader = command.ExecuteReader())
             {
                 foreach (var collation in reader.Cast<DbDataRecord>())
@@ -547,33 +578,35 @@ ORDER BY attnum";
             }
         }
 
-        var commandText = $@"
+        var commandText = $"""
 SELECT
   idxcls.oid AS idx_oid,
   nspname,
   cls.relname AS cls_relname,
   idxcls.relname AS idx_relname,
   indisunique,
+  {(connection.KingbaseESVersion >= new Version(15, 0) ? "indnullsnotdistinct" : "false AS indnullsnotdistinct")},
   {(connection.KingbaseESVersion >= new Version(11, 0) ? "indnkeyatts" : "indnatts AS indnkeyatts")},
-  {(connection.KingbaseESVersion >= new Version(9, 6) ? "sys_indexam_has_property(am.oid, 'can_order') as amcanorder" : "amcanorder")},
+  {(connection.KingbaseESVersion >= new Version(9, 6) ? "pg_indexam_has_property(am.oid, 'can_order') as amcanorder" : "amcanorder")},
   indkey,
   amname,
   indclass,
   indoption,
   {(connection.KingbaseESVersion >= new Version(9, 1) ? "indcollation" : "''::oidvector AS indcollation")},
+  {(connection.KingbaseESVersion >= new Version(8, 2) ? "idxcls.reloptions AS idx_reloptions" : "'{}'::text[] AS idx_reloptions")},
   CASE
     WHEN indexprs IS NULL THEN NULL
-    ELSE sys_get_expr(indexprs, cls.oid)
+    ELSE pg_get_expr(indexprs, cls.oid)
   END AS exprs,
   CASE
     WHEN indpred IS NULL THEN NULL
-    ELSE sys_get_expr(indpred, cls.oid)
+    ELSE pg_get_expr(indpred, cls.oid)
   END AS pred
-FROM sys_class AS cls
-JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
-JOIN sys_index AS idx ON indrelid = cls.oid
-JOIN sys_class AS idxcls ON idxcls.oid = indexrelid
-JOIN sys_am AS am ON am.oid = idxcls.relam
+FROM pg_class AS cls
+JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+JOIN pg_index AS idx ON indrelid = cls.oid
+JOIN pg_class AS idxcls ON idxcls.oid = indexrelid
+JOIN pg_am AS am ON am.oid = idxcls.relam
 WHERE
   cls.relkind = 'r' AND
   nspname NOT IN ({internalSchemas}) AND
@@ -581,24 +614,26 @@ WHERE
   cls.relname <> '{HistoryRepository.DefaultTableName}' AND
   -- Exclude tables which are members of PG extensions
   NOT EXISTS (
-    SELECT 1 FROM sys_depend WHERE
+    SELECT 1 FROM pg_depend WHERE
       classid=(
         SELECT cls.oid
-        FROM sys_class AS cls
-        JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
-        WHERE relname='sys_class' AND ns.nspname='sys_catalog'
+        FROM pg_class AS cls
+        JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+        WHERE relname='pg_class' AND ns.nspname='pg_catalog'
       ) AND
       objid=cls.oid AND
       deptype IN ('e', 'x')
   )
-  {tableFilter}";
+  {tableFilter}
+""";
 
         using (var command = new KdbndpCommand(commandText, connection))
         using (var reader = command.ExecuteReader())
         {
-            var tableGroups = reader.Cast<DbDataRecord>().GroupBy(ddr => (
-                tableSchema: ddr.GetFieldValue<string>("nspname"),
-                tableName: ddr.GetFieldValue<string>("cls_relname")));
+            var tableGroups = reader.Cast<DbDataRecord>().GroupBy(
+                ddr => (
+                    tableSchema: ddr.GetFieldValue<string>("nspname"),
+                    tableName: ddr.GetFieldValue<string>("cls_relname")));
 
             foreach (var tableGroup in tableGroups)
             {
@@ -645,7 +680,7 @@ WHERE
                     // Key columns come before non-key (included) columns, process them first
                     foreach (var i in columnIndices.Take(numKeyColumns))
                     {
-                        if (tableColumns[i - 1] is DatabaseColumn indexKeyColumn)
+                        if (tableColumns[i - 1] is { } indexKeyColumn)
                         {
                             index.Columns.Add(indexKeyColumn);
                         }
@@ -662,9 +697,9 @@ WHERE
                         var nonKeyColumns = new List<string>();
                         foreach (var i in columnIndices.Skip(numKeyColumns))
                         {
-                            if (tableColumns[i - 1] is DatabaseColumn indexKeyColumn)
+                            if (tableColumns[i - 1] is { } indexKeyColumn)
                             {
-                                nonKeyColumns.Add(indexKeyColumn.Name!);
+                                nonKeyColumns.Add(indexKeyColumn.Name);
                             }
                             else
                             {
@@ -677,7 +712,7 @@ WHERE
                         // index[KdbndpAnnotationNames.IndexInclude] = nonKeyColumns.ToArray();
                     }
 
-                    if (record.GetValueOrDefault<string>("pred") is string predicate)
+                    if (record.GetValueOrDefault<string>("pred") is { } predicate)
                     {
                         index.Filter = predicate;
                     }
@@ -687,7 +722,7 @@ WHERE
                     // KdbndpAnnotationCodeGenerator can then omit it as by-convention.
                     // However, because of https://github.com/aspnet/EntityFrameworkCore/issues/11846 we omit
                     // the annotation from the model entirely.
-                    if (record.GetValueOrDefault<string>("amname") is string indexMethod && indexMethod != "btree")
+                    if (record.GetValueOrDefault<string>("amname") is { } indexMethod && indexMethod != "btree")
                     {
                         index[KdbndpAnnotationNames.IndexMethod] = indexMethod;
                     }
@@ -717,28 +752,31 @@ WHERE
                     {
                         var options = record.GetFieldValue<ushort[]>("indoption");
 
-                        // The first bit specifies whether values are sorted in descending order.
-                        const ushort indoptionDescFlag = 0x0001;
-
-                        var sortOrders = options
-                            .Select(val => (val & indoptionDescFlag) != 0 ? SortOrder.Descending : SortOrder.Ascending)
-                            .ToArray();
-
-                        if (!SortOrderHelper.IsDefaultSortOrder(sortOrders))
-                        {
-                            index[KdbndpAnnotationNames.IndexSortOrder] = sortOrders;
-                        }
-
-                        // The second bit specifies whether NULLs are sorted first instead of last.
-                        const ushort indoptionNullsFirstFlag = 0x0002;
-
+                        // The first bit in indoption specifies whether values are sorted in descending order, the second whether
+                        // NULLs are sorted first instead of last.
+                        var isDescending = options.Select(val => (val & 0x0001) != 0).ToList();
                         var nullSortOrders = options
-                            .Select(val => (val & indoptionNullsFirstFlag) != 0 ? NullSortOrder.NullsFirst : NullSortOrder.NullsLast)
+                            .Select(val => (val & 0x0002) != 0 ? NullSortOrder.NullsFirst : NullSortOrder.NullsLast)
                             .ToArray();
 
-                        if (!SortOrderHelper.IsDefaultNullSortOrder(nullSortOrders, sortOrders))
+                        index.IsDescending = isDescending;
+
+                        if (!SortOrderHelper.IsDefaultNullSortOrder(nullSortOrders, isDescending))
                         {
                             index[KdbndpAnnotationNames.IndexNullSortOrder] = nullSortOrders;
+                        }
+                    }
+
+                    if (record.GetValueOrDefault<bool>("indnullsnotdistinct"))
+                    {
+                        index[KdbndpAnnotationNames.NullsDistinct] = false;
+                    }
+
+                    foreach (var storageParameter in record.GetValueOrDefault<string[]>("idx_reloptions") ?? Array.Empty<string>())
+                    {
+                        if (storageParameter.Split("=") is [var paramName, var paramValue])
+                        {
+                            index[KdbndpAnnotationNames.StorageParameterPrefix + paramName] = paramValue;
                         }
                     }
 
@@ -751,7 +789,7 @@ WHERE
     }
 
     /// <summary>
-    /// Queries the database for defined constraints and registers them with the model.
+    ///     Queries the database for defined constraints and registers them with the model.
     /// </summary>
     private static void GetConstraints(
         KdbndpConnection connection,
@@ -761,7 +799,7 @@ WHERE
         out List<uint> constraintIndexes,
         IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
     {
-        var commandText = $@"
+        var commandText = $"""
 SELECT
   ns.nspname,
   cls.relname,
@@ -773,11 +811,11 @@ SELECT
   frncls.relname AS fr_relname,
   confkey,
   confdeltype::text
-FROM sys_class AS cls
-JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
-JOIN sys_constraint as con ON con.conrelid = cls.oid
-LEFT OUTER JOIN sys_class AS frncls ON frncls.oid = con.confrelid
-LEFT OUTER JOIN sys_namespace as frnns ON frnns.oid = frncls.relnamespace
+FROM pg_class AS cls
+JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+JOIN pg_constraint as con ON con.conrelid = cls.oid
+LEFT OUTER JOIN pg_class AS frncls ON frncls.oid = con.confrelid
+LEFT OUTER JOIN pg_namespace as frnns ON frnns.oid = frncls.relnamespace
 WHERE
   cls.relkind = 'r' AND
   ns.nspname NOT IN ({internalSchemas}) AND
@@ -785,25 +823,27 @@ WHERE
   cls.relname <> '{HistoryRepository.DefaultTableName}' AND
   -- Exclude tables which are members of PG extensions
   NOT EXISTS (
-    SELECT 1 FROM sys_depend WHERE
+    SELECT 1 FROM pg_depend WHERE
       classid=(
         SELECT cls.oid
-        FROM sys_class AS cls
-        JOIN sys_namespace AS ns ON ns.oid = cls.relnamespace
-        WHERE relname='sys_class' AND ns.nspname='sys_catalog'
+        FROM pg_class AS cls
+        JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+        WHERE relname='pg_class' AND ns.nspname='pg_catalog'
       ) AND
       objid=cls.oid AND
       deptype IN ('e', 'x')
   )
-  {tableFilter}";
+  {tableFilter}
+""";
 
         using var command = new KdbndpCommand(commandText, connection);
         using var reader = command.ExecuteReader();
 
         constraintIndexes = new List<uint>();
-        var tableGroups = reader.Cast<DbDataRecord>().GroupBy(ddr => (
-            tableSchema: ddr.GetFieldValue<string>("nspname"),
-            tableName: ddr.GetFieldValue<string>("relname")));
+        var tableGroups = reader.Cast<DbDataRecord>().GroupBy(
+            ddr => (
+                tableSchema: ddr.GetFieldValue<string>("nspname"),
+                tableName: ddr.GetFieldValue<string>("relname")));
 
         foreach (var tableGroup in tableGroups)
         {
@@ -816,15 +856,11 @@ WHERE
             foreach (var primaryKeyRecord in tableGroup.Where(ddr => ddr.GetFieldValue<string>("contype") == "p"))
             {
                 var pkName = primaryKeyRecord.GetValueOrDefault<string>("conname");
-                var primaryKey = new DatabasePrimaryKey
-                {
-                    Table = table,
-                    Name = pkName
-                };
+                var primaryKey = new DatabasePrimaryKey { Table = table, Name = pkName };
 
                 foreach (var pkColumnIndex in primaryKeyRecord.GetFieldValue<short[]>("conkey"))
                 {
-                    if (table.Columns[pkColumnIndex - 1] is DatabaseColumn pkColumn)
+                    if (table.Columns[pkColumnIndex - 1] is { } pkColumn)
                     {
                         primaryKey.Columns.Add(pkColumn);
                     }
@@ -848,17 +884,19 @@ WHERE
                 var onDeleteAction = foreignKeyRecord.GetFieldValue<string>("confdeltype");
 
                 var principalTable =
-                    tables.FirstOrDefault(t =>
-                        principalTableSchema == t.Schema && principalTableName == t.Name)
-                    ?? tables.FirstOrDefault(t =>
-                        principalTableSchema.Equals(t.Schema, StringComparison.OrdinalIgnoreCase) &&
-                        principalTableName.Equals(t.Name, StringComparison.OrdinalIgnoreCase));
+                    tables.FirstOrDefault(
+                        t =>
+                            principalTableSchema == t.Schema && principalTableName == t.Name)
+                    ?? tables.FirstOrDefault(
+                        t =>
+                            principalTableSchema.Equals(t.Schema, StringComparison.OrdinalIgnoreCase)
+                            && principalTableName.Equals(t.Name, StringComparison.OrdinalIgnoreCase));
 
                 if (principalTable is null)
                 {
                     logger.ForeignKeyReferencesMissingPrincipalTableWarning(
                         fkName,
-                        DisplayName(table.Schema, table.Name!),
+                        DisplayName(table.Schema, table.Name),
                         DisplayName(principalTableSchema, principalTableName));
 
                     continue;
@@ -907,11 +945,7 @@ WHERE
 
                 logger.UniqueConstraintFound(name, DisplayName(tableSchema, tableName));
 
-                var uniqueConstraint = new DatabaseUniqueConstraint
-                {
-                    Table = table,
-                    Name = name
-                };
+                var uniqueConstraint = new DatabaseUniqueConstraint { Table = table, Name = name };
 
                 foreach (var columnIndex in record.GetFieldValue<short[]>("conkey"))
                 {
@@ -934,7 +968,7 @@ WHERE
     }
 
     /// <summary>
-    /// Queries the database for defined sequences and registers them with the model.
+    ///     Queries the database for defined sequences and registers them with the model.
     /// </summary>
     private static IEnumerable<DatabaseSequence> GetSequences(
         KdbndpConnection connection,
@@ -942,8 +976,8 @@ WHERE
         Func<string, string>? schemaFilter,
         IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
     {
-        // Note: we consult information_schema.sequences instead of sys_sequence but the latter was only introduced in PG 10
-        var commandText = $@"
+        // Note: we consult information_schema.sequences instead of pg_sequence but the latter was only introduced in PG 10
+        var commandText = $"""
 SELECT
   sequence_schema, sequence_name,
   data_type AS seqtype,
@@ -957,14 +991,15 @@ SELECT
     ELSE FALSE
   END AS seqcycle
 FROM information_schema.sequences
-JOIN sys_namespace AS ns ON ns.nspname = sequence_schema
-JOIN sys_class AS cls ON cls.relnamespace = ns.oid AND cls.relname = sequence_name
+JOIN pg_namespace AS ns ON ns.nspname = sequence_schema
+JOIN pg_class AS cls ON cls.relnamespace = ns.oid AND cls.relname = sequence_name
 WHERE
   cls.relkind = 'S'
   /* AND seqtype IN ('integer', 'bigint', 'smallint') */
   /* Filter out owned serial and identity sequences */
-  AND NOT EXISTS (SELECT * FROM sys_depend AS dep WHERE dep.objid = cls.oid AND dep.deptype IN ('i', 'I', 'a'))
-  {(schemaFilter is not null ? $"AND {schemaFilter("nspname")}" : null)}";
+  AND NOT EXISTS (SELECT * FROM pg_depend AS dep WHERE dep.objid = cls.oid AND dep.deptype IN ('i', 'I', 'a'))
+  {(schemaFilter is not null ? $"AND {schemaFilter("nspname")}" : null)}
+""";
 
         using var command = new KdbndpCommand(commandText, connection);
         using var reader = command.ExecuteReader();
@@ -993,27 +1028,28 @@ WHERE
     }
 
     /// <summary>
-    /// Queries the database for defined enums and registers them with the model.
+    ///     Queries the database for defined enums and registers them with the model.
     /// </summary>
     private static HashSet<string> GetEnums(KdbndpConnection connection, DatabaseModel databaseModel)
     {
         var enums = new HashSet<string>();
 
-        // sys_enum doesn't exist on Redshift
+        // pg_enum doesn't exist on Redshift
         if (connection.KingbaseESVersion < new Version(8, 3))
         {
             return enums;
         }
 
-        var commandText = $@"
+        var commandText = $"""
 SELECT
   nspname,
   typname,
   array_agg(enumlabel{(connection.KingbaseESVersion >= new Version(9, 1) ? " ORDER BY enumsortorder" : "")}) AS labels
-FROM sys_enum
-JOIN sys_type ON sys_type.oid = enumtypid
-JOIN sys_namespace ON sys_namespace.oid = sys_type.typnamespace
-GROUP BY nspname, typname";
+FROM pg_enum
+JOIN pg_type ON pg_type.oid = enumtypid
+JOIN pg_namespace ON pg_namespace.oid = pg_type.typnamespace
+GROUP BY nspname, typname
+""";
 
         using var command = new KdbndpCommand(commandText, connection);
         using var reader = command.ExecuteReader();
@@ -1038,13 +1074,15 @@ GROUP BY nspname, typname";
     }
 
     /// <summary>
-    /// Queries the installed database extensions and registers them with the model.
+    ///     Queries the installed database extensions and registers them with the model.
     /// </summary>
     private static void GetExtensions(KdbndpConnection connection, DatabaseModel databaseModel)
     {
-        const string commandText = @"
-SELECT ns.nspname, extname, extversion FROM sys_extension
-JOIN sys_namespace ns ON ns.oid=extnamespace";
+        const string commandText = """
+SELECT ns.nspname, extname, extversion
+FROM pg_extension
+JOIN pg_namespace ns ON ns.oid=extnamespace
+""";
         using var command = new KdbndpCommand(commandText, connection);
         using var reader = command.ExecuteReader();
 
@@ -1069,16 +1107,16 @@ JOIN sys_namespace ns ON ns.oid=extnamespace";
         string internalSchemas,
         IDiagnosticsLogger<DbLoggerCategory.Scaffolding> logger)
     {
-
-        var commandText = @$"
+        var commandText = $"""
 SELECT
     nspname, collname, collprovider, collcollate, collctype,
     {(connection.KingbaseESVersion >= new Version(15, 0) ? "colliculocale" : "NULL AS colliculocale")},
     {(connection.KingbaseESVersion >= new Version(12, 0) ? "collisdeterministic" : "true AS collisdeterministic")}
-FROM sys_collation coll
-    JOIN sys_namespace ns ON ns.oid=coll.collnamespace
+FROM pg_collation coll
+    JOIN pg_namespace ns ON ns.oid=coll.collnamespace
 WHERE
-    nspname NOT IN ({internalSchemas})";
+    nspname NOT IN ({internalSchemas})
+""";
 
         try
         {
@@ -1127,7 +1165,7 @@ WHERE
                     databaseModel, schema, name, lcCollate!, lcCtype, provider, isDeterministic);
             }
         }
-        catch (KingbaseException e)
+        catch (KdbndpException e)
         {
             logger.Logger.LogWarning(e, "Could not load database collations.");
         }
@@ -1138,14 +1176,14 @@ WHERE
     #region Configure default values
 
     /// <summary>
-    /// Configures the default value for a column.
+    ///     Configures the default value for a column.
     /// </summary>
     /// <param name="column">The column to configure.</param>
     /// <param name="systemTypeName">The type name of the column.</param>
     private static void AdjustDefaults(DatabaseColumn column, string systemTypeName)
     {
         var defaultValue = column.DefaultValueSql;
-        if (defaultValue is null || defaultValue == "(NULL)")
+        if (defaultValue is null or "(NULL)")
         {
             column.DefaultValueSql = null;
             return;
@@ -1158,37 +1196,28 @@ WHERE
 
         if (defaultValue == "0")
         {
-            if (systemTypeName == "float4" ||
-                systemTypeName == "float8" ||
-                systemTypeName == "int2" ||
-                systemTypeName == "int4" ||
-                systemTypeName == "int8" ||
-                systemTypeName == "money" ||
-                systemTypeName == "numeric")
+            if (systemTypeName is "float4" or "float8" or "int2" or "int4" or "int8" or "money" or "numeric")
             {
                 column.DefaultValueSql = null;
                 return;
             }
         }
 
-        if (defaultValue == "0.0" || defaultValue == "'0'::numeric")
+        if (defaultValue is "0.0" or "'0'::numeric")
         {
-            if (systemTypeName == "numeric" ||
-                systemTypeName == "float4" ||
-                systemTypeName == "float8" ||
-                systemTypeName == "money")
+            if (systemTypeName is "numeric" or "float4" or "float8" or "money")
             {
                 column.DefaultValueSql = null;
                 return;
             }
         }
 
-        if (systemTypeName == "bool" && defaultValue == "false" ||
-            systemTypeName == "date" && defaultValue == "'0001-01-01'::date" ||
-            systemTypeName == "timestamp" && defaultValue == "'1900-01-01 00:00:00'::timestamp without time zone" ||
-            systemTypeName == "time" && defaultValue == "'00:00:00'::time without time zone" ||
-            systemTypeName == "interval" && defaultValue == "'00:00:00'::interval" ||
-            systemTypeName == "uuid" && defaultValue == "'00000000-0000-0000-0000-000000000000'::uuid")
+        if (systemTypeName == "bool" && defaultValue == "false"
+            || systemTypeName == "date" && defaultValue == "'0001-01-01'::date"
+            || systemTypeName == "timestamp" && defaultValue == "'1900-01-01 00:00:00'::timestamp without time zone"
+            || systemTypeName == "time" && defaultValue == "'00:00:00'::time without time zone"
+            || systemTypeName == "interval" && defaultValue == "'00:00:00'::interval"
+            || systemTypeName == "uuid" && defaultValue == "'00000000-0000-0000-0000-000000000000'::uuid")
         {
             column.DefaultValueSql = null;
         }
@@ -1259,19 +1288,23 @@ WHERE
 
         return new SequenceInfo(storeType)
         {
-            StartValue = startValue == defaultStart ? null : (long?)startValue,
-            MinValue = minValue == defaultMin ? null : (long?)minValue,
-            MaxValue = maxValue == defaultMax ? null : (long?)maxValue,
-            IncrementBy = incrementBy == 1 ? null : (long?)incrementBy,
-            IsCyclic = isCyclic == false ? null : (bool?)true,
-            NumbersToCache = numbersToCache == 1 ? null : (long?)numbersToCache
+            StartValue = startValue == defaultStart ? null : startValue,
+            MinValue = minValue == defaultMin ? null : minValue,
+            MaxValue = maxValue == defaultMax ? null : maxValue,
+            IncrementBy = incrementBy == 1 ? null : incrementBy,
+            IsCyclic = isCyclic == false ? null : true,
+            NumbersToCache = numbersToCache == 1 ? null : numbersToCache
         };
     }
 
     private sealed class SequenceInfo
     {
-        public SequenceInfo(string storeType) => StoreType = storeType;
-        public string StoreType { get; set; }
+        public SequenceInfo(string storeType)
+        {
+            StoreType = storeType;
+        }
+
+        public string StoreType { get; }
         public long? StartValue { get; set; }
         public long? MinValue { get; set; }
         public long? MaxValue { get; set; }
@@ -1285,15 +1318,15 @@ WHERE
     #region Filter fragment generators
 
     /// <summary>
-    /// Builds a delegate to generate a schema filter fragment.
+    ///     Builds a delegate to generate a schema filter fragment.
     /// </summary>
     private static Func<string, string>? GenerateSchemaFilter(IReadOnlyList<string> schemas)
         => schemas.Any()
             ? s => $"{s} IN ({string.Join(", ", schemas.Select(EscapeLiteral))})"
-            : (Func<string, string>?)null;
+            : null;
 
     /// <summary>
-    /// Builds a delegate to generate a table filter fragment.
+    ///     Builds a delegate to generate a table filter fragment.
     /// </summary>
     private static Func<string, string, string>? GenerateTableFilter(
         IReadOnlyList<(string? Schema, string Table)> tables,
@@ -1363,14 +1396,14 @@ WHERE
 
                 return tableFilterBuilder.ToString();
             }
-            : (Func<string, string, string>?)null;
+            : null;
 
     #endregion
 
     #region Utilities
 
     /// <summary>
-    /// Type names as returned by KingbaseES's format_type need to be cleaned up a bit
+    ///     Type names as returned by KingbaseES's format_type need to be cleaned up a bit
     /// </summary>
     private static string AdjustFormattedTypeName(string formattedTypeName)
     {
@@ -1389,7 +1422,7 @@ WHERE
     }
 
     /// <summary>
-    /// Maps a character to a <see cref="ReferentialAction"/>.
+    ///     Maps a character to a <see cref="ReferentialAction" />.
     /// </summary>
     private static ReferentialAction ConvertToReferentialAction(string onDeleteAction)
         => onDeleteAction switch
@@ -1404,14 +1437,14 @@ WHERE
         };
 
     /// <summary>
-    /// Constructs the display name given a schema and table name.
+    ///     Constructs the display name given a schema and table name.
     /// </summary>
     // TODO: should this default to/screen out the public schema?
     private static string DisplayName(string? schema, string name)
         => string.IsNullOrEmpty(schema) ? name : $"{schema}.{name}";
 
     /// <summary>
-    /// Parses the table name into a tuple of schema name and table name where the schema may be null.
+    ///     Parses the table name into a tuple of schema name and table name where the schema may be null.
     /// </summary>
     private static (string? Schema, string Table) Parse(string table)
     {
@@ -1429,9 +1462,10 @@ WHERE
     }
 
     /// <summary>
-    /// Wraps a string literal in single quotes.
+    ///     Wraps a string literal in single quotes.
     /// </summary>
-    private static string EscapeLiteral(string? s) => $"'{s}'";
+    private static string EscapeLiteral(string? s)
+        => $"'{s}'";
 
     #endregion
 }

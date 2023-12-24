@@ -1,11 +1,14 @@
-﻿using System.Collections.Generic;
-using System.Data;
-using System.Linq;
+﻿using System.Data;
 using System.Text;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpSqlGenerationHelper : RelationalSqlGenerationHelper
 {
     private static readonly HashSet<string> ReservedWords;
@@ -15,16 +18,37 @@ public class KdbndpSqlGenerationHelper : RelationalSqlGenerationHelper
         // https://www.KingbaseES.org/docs/current/static/sql-keywords-appendix.html
         using (var conn = new KdbndpConnection())
         {
-            ReservedWords = new HashSet<string>(conn.GetSchema("ReservedWords").Rows.Cast<DataRow>().Select(r => (string)r["ReservedWord"]));
+            ReservedWords =
+                new HashSet<string>(conn.GetSchema("ReservedWords").Rows.Cast<DataRow>().Select(r => (string)r["ReservedWord"]));
         }
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpSqlGenerationHelper(RelationalSqlGenerationHelperDependencies dependencies)
-        : base(dependencies) {}
+        : base(dependencies)
+    {
+    }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override string DelimitIdentifier(string identifier)
         => RequiresQuoting(identifier) ? base.DelimitIdentifier(identifier) : identifier;
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public override void DelimitIdentifier(StringBuilder builder, string identifier)
     {
         if (RequiresQuoting(identifier))
@@ -38,7 +62,7 @@ public class KdbndpSqlGenerationHelper : RelationalSqlGenerationHelper
     }
 
     /// <summary>
-    /// Returns whether the given string can be used as an unquoted identifier in KingbaseES, without quotes.
+    ///     Returns whether the given string can be used as an unquoted identifier in KingbaseES, without quotes.
     /// </summary>
     private static bool RequiresQuoting(string identifier)
     {
@@ -70,7 +94,7 @@ public class KdbndpSqlGenerationHelper : RelationalSqlGenerationHelper
                 case '8':
                 case '9':
                 case '_':
-                case '$':  // yes it's true
+                case '$': // yes it's true
                     continue;
             }
 

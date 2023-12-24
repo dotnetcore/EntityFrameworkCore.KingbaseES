@@ -1,58 +1,38 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
-using Microsoft.EntityFrameworkCore.Storage;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions.Internal;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Internal;
-using Kdbndp.EntityFrameworkCore.KingbaseES.Internal;
 using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions;
+using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions.Internal;
 using static Kdbndp.EntityFrameworkCore.KingbaseES.Utilities.Statics;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.ExpressionTranslators.Internal;
 
+/// <summary>
+///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+///     any release. You should only use it directly in your code with extreme caution and knowing that
+///     doing so can result in application failures when updating to a new Entity Framework Core release.
+/// </summary>
 public class KdbndpLTreeTranslator : IMethodCallTranslator, IMemberTranslator
 {
-    private readonly IRelationalTypeMappingSource _typeMappingSource;
     private readonly KdbndpSqlExpressionFactory _sqlExpressionFactory;
     private readonly RelationalTypeMapping _boolTypeMapping;
     private readonly RelationalTypeMapping _ltreeTypeMapping;
-    private readonly RelationalTypeMapping _ltreeArrayTypeMapping;
     private readonly RelationalTypeMapping _lqueryTypeMapping;
-    private readonly RelationalTypeMapping _lqueryArrayTypeMapping;
     private readonly RelationalTypeMapping _ltxtqueryTypeMapping;
 
-    private static readonly MethodInfo IsAncestorOf =
-        typeof(LTree).GetRuntimeMethod(nameof(LTree.IsAncestorOf), new[] { typeof(LTree) })!;
-
-    private static readonly MethodInfo IsDescendantOf =
-        typeof(LTree).GetRuntimeMethod(nameof(LTree.IsDescendantOf), new[] { typeof(LTree) })!;
-
-    private static readonly MethodInfo MatchesLQuery =
-        typeof(LTree).GetRuntimeMethod(nameof(LTree.MatchesLQuery), new[] { typeof(string) })!;
-
-    private static readonly MethodInfo MatchesLTxtQuery =
-        typeof(LTree).GetRuntimeMethod(nameof(LTree.MatchesLTxtQuery), new[] { typeof(string) })!;
-
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public KdbndpLTreeTranslator(
         IRelationalTypeMappingSource typeMappingSource,
         KdbndpSqlExpressionFactory sqlExpressionFactory,
         IModel model)
     {
-        _typeMappingSource = typeMappingSource;
         _sqlExpressionFactory = sqlExpressionFactory;
         _boolTypeMapping = typeMappingSource.FindMapping(typeof(bool), model)!;
         _ltreeTypeMapping = typeMappingSource.FindMapping(typeof(LTree), model)!;
-        _ltreeArrayTypeMapping = typeMappingSource.FindMapping(typeof(LTree[]), model)!;
         _lqueryTypeMapping = typeMappingSource.FindMapping("lquery")!;
-        _lqueryArrayTypeMapping = typeMappingSource.FindMapping("lquery[]")!;
         _ltxtqueryTypeMapping = typeMappingSource.FindMapping("ltxtquery")!;
     }
 
@@ -68,32 +48,32 @@ public class KdbndpLTreeTranslator : IMethodCallTranslator, IMemberTranslator
             return method.Name switch
             {
                 nameof(LTree.IsAncestorOf)
-                    => new PostgresBinaryExpression(
-                        PostgresExpressionType.Contains,
+                    => new PgBinaryExpression(
+                        PgExpressionType.Contains,
                         ApplyTypeMappingOrConvert(instance!, _ltreeTypeMapping),
                         ApplyTypeMappingOrConvert(arguments[0], _ltreeTypeMapping),
                         typeof(bool),
                         _boolTypeMapping),
 
                 nameof(LTree.IsDescendantOf)
-                    => new PostgresBinaryExpression(
-                        PostgresExpressionType.ContainedBy,
+                    => new PgBinaryExpression(
+                        PgExpressionType.ContainedBy,
                         ApplyTypeMappingOrConvert(instance!, _ltreeTypeMapping),
                         ApplyTypeMappingOrConvert(arguments[0], _ltreeTypeMapping),
                         typeof(bool),
                         _boolTypeMapping),
 
                 nameof(LTree.MatchesLQuery)
-                    => new PostgresBinaryExpression(
-                        PostgresExpressionType.LTreeMatches,
+                    => new PgBinaryExpression(
+                        PgExpressionType.LTreeMatches,
                         ApplyTypeMappingOrConvert(instance!, _ltreeTypeMapping),
                         ApplyTypeMappingOrConvert(arguments[0], _lqueryTypeMapping),
                         typeof(bool),
                         _boolTypeMapping),
 
                 nameof(LTree.MatchesLTxtQuery)
-                    => new PostgresBinaryExpression(
-                        PostgresExpressionType.LTreeMatches,
+                    => new PgBinaryExpression(
+                        PgExpressionType.LTreeMatches,
                         ApplyTypeMappingOrConvert(instance!, _ltreeTypeMapping),
                         ApplyTypeMappingOrConvert(arguments[0], _ltxtqueryTypeMapping),
                         typeof(bool),
@@ -145,6 +125,12 @@ public class KdbndpLTreeTranslator : IMethodCallTranslator, IMemberTranslator
         return null;
     }
 
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
     public virtual SqlExpression? Translate(
         SqlExpression? instance,
         MemberInfo member,
@@ -158,177 +144,6 @@ public class KdbndpLTreeTranslator : IMethodCallTranslator, IMemberTranslator
                 TrueArrays[1],
                 typeof(int))
             : null;
-
-    /// <summary>
-    /// Called directly from <see cref="KdbndpSqlTranslatingExpressionVisitor"/> to translate LTree array-related constructs which
-    /// cannot be translated in regular method translators, since they require accessing lambdas.
-    /// </summary>
-    public virtual Expression? VisitArrayMethodCall(
-        KdbndpSqlTranslatingExpressionVisitor sqlTranslatingExpressionVisitor,
-        MethodInfo method,
-        ReadOnlyCollection<Expression> arguments)
-    {
-        var array = arguments[0];
-
-        {
-            if (method.IsClosedFormOf(EnumerableMethods.AnyWithPredicate) &&
-                arguments[1] is LambdaExpression wherePredicate &&
-                wherePredicate.Body is MethodCallExpression wherePredicateMethodCall)
-            {
-                var predicateMethod = wherePredicateMethodCall.Method;
-                var predicateInstance = wherePredicateMethodCall.Object!;
-                var predicateArguments = wherePredicateMethodCall.Arguments;
-
-                // Pattern match: new[] { "q1", "q2" }.Any(q => e.SomeLTree.MatchesLQuery(q))
-                // Translation: s.SomeLTree ? ARRAY['q1','q2']
-                if (predicateMethod == MatchesLQuery && predicateArguments[0] == wherePredicate.Parameters[0])
-                {
-                    return new PostgresBinaryExpression(
-                        PostgresExpressionType.LTreeMatchesAny,
-                        ApplyTypeMappingOrConvert(Visit(predicateInstance), _ltreeTypeMapping),
-                        _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _lqueryArrayTypeMapping),
-                        typeof(bool),
-                        _boolTypeMapping);
-                }
-
-                // Pattern match: new[] { "t1", "t2" }.Any(t => t.IsAncestorOf(e.SomeLTree))
-                // Translation: ARRAY['t1','t2'] @> s.SomeLTree
-                if (predicateMethod == IsAncestorOf && predicateInstance == wherePredicate.Parameters[0])
-                {
-                    return new PostgresBinaryExpression(
-                        PostgresExpressionType.Contains,
-                        _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _ltreeArrayTypeMapping),
-                        ApplyTypeMappingOrConvert(Visit(predicateArguments[0]), _ltreeTypeMapping),
-                        typeof(bool),
-                        _boolTypeMapping);
-                }
-
-                // Pattern match: new[] { "t1", "t2" }.Any(t => t.IsDescendantOf(e.SomeLTree))
-                // Translation: s.SomeLTree <@ ARRAY['t1','t2']
-                if (predicateMethod == IsDescendantOf && predicateInstance == wherePredicate.Parameters[0])
-                {
-                    return new PostgresBinaryExpression(
-                        PostgresExpressionType.ContainedBy,
-                        _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _ltreeArrayTypeMapping),
-                        ApplyTypeMappingOrConvert(Visit(predicateArguments[0]), _ltreeTypeMapping),
-                        typeof(bool),
-                        _boolTypeMapping);
-                }
-
-                // Pattern match: new[] { "t1", "t2" }.Any(t => t.MatchesLQuery(lquery))
-                // Translation: ARRAY['t1','t2'] ~ lquery
-                if (predicateMethod == MatchesLQuery && predicateInstance == wherePredicate.Parameters[0])
-                {
-                    return new PostgresBinaryExpression(
-                        PostgresExpressionType.LTreeMatches,
-                        _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _ltreeArrayTypeMapping),
-                        ApplyTypeMappingOrConvert(Visit(predicateArguments[0]), _lqueryTypeMapping),
-                        typeof(bool),
-                        _boolTypeMapping);
-                }
-
-                // Pattern match: new[] { "t1", "t2" }.Any(t => t.MatchesLTxtQuery(ltxtquery))
-                // Translation: ARRAY['t1','t2'] @ ltxtquery
-                if (predicateMethod == MatchesLTxtQuery && predicateInstance == wherePredicate.Parameters[0])
-                {
-                    return new PostgresBinaryExpression(
-                        PostgresExpressionType.LTreeMatches,
-                        _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _ltreeArrayTypeMapping),
-                        ApplyTypeMappingOrConvert(Visit(predicateArguments[0]), _ltxtqueryTypeMapping),
-                        typeof(bool),
-                        _boolTypeMapping);
-                }
-
-                // Any within Any (i.e. intersection)
-                if (predicateMethod.IsClosedFormOf(EnumerableMethods.AnyWithPredicate) &&
-                    predicateArguments[1] is LambdaExpression nestedWherePredicate &&
-                    nestedWherePredicate.Body is MethodCallExpression nestedWherePredicateMethodCall)
-                {
-                    var nestedPredicateMethod = nestedWherePredicateMethodCall.Method;
-                    var nestedPredicateInstance = nestedWherePredicateMethodCall.Object;
-                    var nestedPredicateArguments = nestedWherePredicateMethodCall.Arguments;
-
-                    // Pattern match: new[] { "t1", "t2" }.Any(t => lqueries.Any(q => t.MatchesLQuery(q)))
-                    // Translation: ARRAY['t1','t2'] ~ ARRAY['q1', 'q2']
-                    if (nestedPredicateMethod == MatchesLQuery &&
-                        nestedPredicateInstance == wherePredicate.Parameters[0] &&
-                        nestedPredicateArguments[0] == nestedWherePredicate.Parameters[0])
-                    {
-                        return new PostgresBinaryExpression(
-                            PostgresExpressionType.LTreeMatchesAny,
-                            _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _ltreeArrayTypeMapping),
-                            _sqlExpressionFactory.ApplyTypeMapping(Visit(predicateArguments[0]), _lqueryArrayTypeMapping),
-                            typeof(bool),
-                            _boolTypeMapping);
-                    }
-                }
-            }
-        }
-
-        {
-            if (method.IsClosedFormOf(EnumerableMethods.FirstOrDefaultWithPredicate) &&
-                arguments[1] is LambdaExpression wherePredicate &&
-                wherePredicate.Body is MethodCallExpression wherePredicateMethodCall)
-            {
-                var predicateMethod = wherePredicateMethodCall.Method;
-                var predicateInstance = wherePredicateMethodCall.Object;
-                var predicateArguments = wherePredicateMethodCall.Arguments;
-
-                // Pattern match: new[] { "t1", "t2" }.FirstOrDefault(t => t.IsAncestorOf(e.SomeLTree))
-                // Translation: ARRAY['t1','t2'] ?@> e.SomeLTree
-                if (predicateMethod == IsAncestorOf && predicateInstance == wherePredicate.Parameters[0])
-                {
-                    return new PostgresBinaryExpression(
-                        PostgresExpressionType.LTreeFirstAncestor,
-                        _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _ltreeArrayTypeMapping),
-                        ApplyTypeMappingOrConvert(Visit(predicateArguments[0]), _ltreeTypeMapping),
-                        typeof(LTree),
-                        _ltreeTypeMapping);
-                }
-
-                // Pattern match: new[] { "t1", "t2" }.FirstOrDefault(t => t.IsDescendant(e.SomeLTree))
-                // Translation: ARRAY['t1','t2'] ?<@ e.SomeLTree
-                if (predicateMethod == IsDescendantOf && predicateInstance == wherePredicate.Parameters[0])
-                {
-                    return new PostgresBinaryExpression(
-                        PostgresExpressionType.LTreeFirstDescendent,
-                        _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _ltreeArrayTypeMapping),
-                        ApplyTypeMappingOrConvert(Visit(predicateArguments[0]), _ltreeTypeMapping),
-                        typeof(LTree),
-                        _ltreeTypeMapping);
-                }
-
-                // Pattern match: new[] { "t1", "t2" }.FirstOrDefault(t => t.MatchesLQuery(lquery))
-                // Translation: ARRAY['t1','t2'] ?~ e.lquery
-                if (predicateMethod == MatchesLQuery && predicateInstance == wherePredicate.Parameters[0])
-                {
-                    return new PostgresBinaryExpression(
-                        PostgresExpressionType.LTreeFirstMatches,
-                        _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _ltreeArrayTypeMapping),
-                        ApplyTypeMappingOrConvert(Visit(predicateArguments[0]), _lqueryTypeMapping),
-                        typeof(LTree),
-                        _ltreeTypeMapping);
-                }
-
-                // Pattern match: new[] { "t1", "t2" }.FirstOrDefault(t => t.MatchesLQuery(ltxtquery))
-                // Translation: ARRAY['t1','t2'] ?@ e.ltxtquery
-                if (predicateMethod == MatchesLTxtQuery && predicateInstance == wherePredicate.Parameters[0])
-                {
-                    return new PostgresBinaryExpression(
-                        PostgresExpressionType.LTreeFirstMatches,
-                        _sqlExpressionFactory.ApplyTypeMapping(Visit(array), _ltreeArrayTypeMapping),
-                        ApplyTypeMappingOrConvert(Visit(predicateArguments[0]), _ltxtqueryTypeMapping),
-                        typeof(string),
-                        _ltreeTypeMapping);
-                }
-            }
-        }
-
-        return null;
-
-        SqlExpression Visit(Expression expression)
-            => (SqlExpression)sqlTranslatingExpressionVisitor.Visit(expression);
-    }
 
     // Applying e.g. the LQuery type mapping on a function operator is a bit tricky.
     // If it's a constant, we can just apply the mapping: the constant will get rendered as an untyped string literal, and PG will

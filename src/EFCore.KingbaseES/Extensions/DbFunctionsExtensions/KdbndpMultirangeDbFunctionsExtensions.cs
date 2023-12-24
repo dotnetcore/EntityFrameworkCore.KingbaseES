@@ -1,83 +1,117 @@
 // ReSharper disable once CheckNamespace
 
-using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-using KdbndpTypes;
-
-// ReSharper disable once CheckNamespace
 namespace Microsoft.EntityFrameworkCore;
 
 /// <summary>
-/// Provides extension methods for multiranges supporting KingbaseES translation.
+///     Provides extension methods for multiranges supporting KingbaseES translation.
 /// </summary>
 public static class KdbndpMultirangeDbFunctionsExtensions
 {
     #region Contains
 
     /// <summary>
-    /// Determines whether a multirange contains a specified value.
+    ///     Determines whether a multirange contains a specified value.
     /// </summary>
     /// <param name="multirange">The multirange in which to locate the value.</param>
     /// <param name="value">The value to locate in the range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified value; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified value; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Contains{T}(KdbndpRange{T}[], T)" /> is only intended for use via SQL translation as part of an EF Core LINQ query.
+    /// </exception>
     public static bool Contains<T>(this KdbndpRange<T>[] multirange, T value)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Contains)));
 
     /// <summary>
-    /// Determines whether a multirange contains a specified value.
+    ///     Determines whether a multirange contains a specified value.
     /// </summary>
     /// <param name="multirange">The multirange in which to locate the value.</param>
     /// <param name="value">The value to locate in the range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified value; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified value; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Contains{T}(List{KdbndpRange{T}}, T)" /> is only intended for use via SQL translation as part of an EF Core LINQ query.
+    /// </exception>
     public static bool Contains<T>(this List<KdbndpRange<T>> multirange, T value)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Contains)));
 
     /// <summary>
-    /// Determines whether a multirange contains a specified multirange.
+    ///     Determines whether a multirange contains a specified multirange.
     /// </summary>
     /// <param name="multirange1">The multirange in which to locate the specified multirange.</param>
     /// <param name="multirange2">The specified multirange to locate in the multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Contains{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF Core
+    ///     LINQ query.
+    /// </exception>
     public static bool Contains<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Contains)));
 
     /// <summary>
-    /// Determines whether a multirange contains a specified multirange.
+    ///     Determines whether a multirange contains a specified multirange.
     /// </summary>
     /// <param name="multirange1">The multirange in which to locate the specified multirange.</param>
     /// <param name="multirange2">The specified multirange to locate in the multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Contains{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part of an EF
+    ///     Core LINQ query.
+    /// </exception>
     public static bool Contains<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Contains)));
 
     /// <summary>
-    /// Determines whether a multirange contains a specified range.
+    ///     Determines whether a multirange contains a specified range.
     /// </summary>
     /// <param name="multirange1">The multirange in which to locate the specified range.</param>
     /// <param name="multirange2">The specified range to locate in the multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Contains{T}(KdbndpRange{T}[], KdbndpRange{T})" /> is only intended for use via SQL translation as part of an EF Core LINQ
+    ///     query.
+    /// </exception>
     public static bool Contains<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Contains)));
 
     /// <summary>
-    /// Determines whether a multirange contains a specified range.
+    ///     Determines whether a multirange contains a specified range.
     /// </summary>
     /// <param name="multirange1">The multirange in which to locate the specified range.</param>
     /// <param name="multirange2">The specified range to locate in the multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Contains{T}(List{KdbndpRange{T}}, KdbndpRange{T})" /> is only intended for use via SQL translation as part of an EF Core
+    ///     LINQ query.
+    /// </exception>
     public static bool Contains<T>(this List<KdbndpRange<T>> multirange1, KdbndpRange<T> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Contains)));
 
@@ -86,46 +120,74 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region ContainedBy
 
     /// <summary>
-    /// Determines whether a multirange is contained by a specified multirange.
+    ///     Determines whether a multirange is contained by a specified multirange.
     /// </summary>
     /// <param name="multirange1">The specified multirange to locate in the multirange.</param>
     /// <param name="multirange2">The multirange in which to locate the specified multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="ContainedBy{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF Core
+    ///     LINQ query.
+    /// </exception>
     public static bool ContainedBy<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(ContainedBy)));
 
     /// <summary>
-    /// Determines whether a multirange is contained by a specified multirange.
+    ///     Determines whether a multirange is contained by a specified multirange.
     /// </summary>
     /// <param name="multirange1">The specified multirange to locate in the multirange.</param>
     /// <param name="multirange2">The multirange in which to locate the specified multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="ContainedBy{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part of an
+    ///     EF Core LINQ query.
+    /// </exception>
     public static bool ContainedBy<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(ContainedBy)));
 
     /// <summary>
-    /// Determines whether a range is contained by a specified multirange.
+    ///     Determines whether a range is contained by a specified multirange.
     /// </summary>
     /// <param name="range">The specified range to locate in the multirange.</param>
-    /// <param name="multirange">The multirange in which to locate the specified irange.</param>
+    /// <param name="multirange">The multirange in which to locate the specified range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified irange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="ContainedBy{T}(KdbndpRange{T}, KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF Core
+    ///     LINQ query.
+    /// </exception>
     public static bool ContainedBy<T>(this KdbndpRange<T> range, KdbndpRange<T>[] multirange)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(ContainedBy)));
 
     /// <summary>
-    /// Determines whether a range is contained by a specified multirange.
+    ///     Determines whether a range is contained by a specified multirange.
     /// </summary>
     /// <param name="range">The specified range to locate in the multirange.</param>
-    /// <param name="multirange">The multirange in which to locate the specified irange.</param>
+    /// <param name="multirange">The multirange in which to locate the specified range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange contains the specified irange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange contains the specified range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="ContainedBy{T}(KdbndpRange{T}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part of an EF
+    ///     Core LINQ query.
+    /// </exception>
     public static bool ContainedBy<T>(this KdbndpRange<T> range, List<KdbndpRange<T>> multirange)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(ContainedBy)));
 
@@ -134,46 +196,74 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region Overlaps
 
     /// <summary>
-    /// Determines whether a multirange overlaps another multirange.
+    ///     Determines whether a multirange overlaps another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multiranges overlap (share points in common); otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multiranges overlap (share points in common); otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Overlaps{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF Core
+    ///     LINQ query.
+    /// </exception>
     public static bool Overlaps<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Overlaps)));
 
     /// <summary>
-    /// Determines whether a multirange overlaps another multirange.
+    ///     Determines whether a multirange overlaps another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multiranges overlap (share points in common); otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multiranges overlap (share points in common); otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Overlaps{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part of an
+    ///     EF Core LINQ query.
+    /// </exception>
     public static bool Overlaps<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Overlaps)));
 
     /// <summary>
-    /// Determines whether a multirange overlaps another range.
+    ///     Determines whether a multirange overlaps another range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange and range overlap (share points in common); otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange and range overlap (share points in common); otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Overlaps{T}(KdbndpRange{T}[], KdbndpRange{T})" /> is only intended for use via SQL translation as part of an EF Core LINQ
+    ///     query.
+    /// </exception>
     public static bool Overlaps<T>(this KdbndpRange<T>[] multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Overlaps)));
 
     /// <summary>
-    /// Determines whether a multirange overlaps another range.
+    ///     Determines whether a multirange overlaps another range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange and range overlap (share points in common); otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange and range overlap (share points in common); otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Overlaps{T}(List{KdbndpRange{T}}, KdbndpRange{T})" /> is only intended for use via SQL translation as part of an EF Core
+    ///     LINQ query.
+    /// </exception>
     public static bool Overlaps<T>(this List<KdbndpRange<T>> multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Overlaps)));
 
@@ -182,46 +272,74 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region IsStrictlyLeftOf
 
     /// <summary>
-    /// Determines whether a multirange is strictly to the left of another multirange.
+    ///     Determines whether a multirange is strictly to the left of another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the first multirange is strictly to the left of the second multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the first multirange is strictly to the left of the second multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsStrictlyLeftOf{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF
+    ///     Core LINQ query.
+    /// </exception>
     public static bool IsStrictlyLeftOf<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsStrictlyLeftOf)));
 
     /// <summary>
-    /// Determines whether a multirange is strictly to the left of another multirange.
+    ///     Determines whether a multirange is strictly to the left of another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the first multirange is strictly to the left of the second multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the first multirange is strictly to the left of the second multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsStrictlyLeftOf{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part
+    ///     of an EF Core LINQ query.
+    /// </exception>
     public static bool IsStrictlyLeftOf<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsStrictlyLeftOf)));
 
     /// <summary>
-    /// Determines whether a multirange is strictly to the left of a range.
+    ///     Determines whether a multirange is strictly to the left of a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange is strictly to the left of the range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange is strictly to the left of the range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsStrictlyLeftOf{T}(KdbndpRange{T}[], KdbndpRange{T})" /> is only intended for use via SQL translation as part of an EF
+    ///     Core LINQ query.
+    /// </exception>
     public static bool IsStrictlyLeftOf<T>(this KdbndpRange<T>[] multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsStrictlyLeftOf)));
 
     /// <summary>
-    /// Determines whether a multirange is strictly to the left of a range.
+    ///     Determines whether a multirange is strictly to the left of a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange is strictly to the left of the range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange is strictly to the left of the range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsStrictlyLeftOf{T}(List{KdbndpRange{T}}, KdbndpRange{T})" /> is only intended for use via SQL translation as part of an
+    ///     EF Core LINQ query.
+    /// </exception>
     public static bool IsStrictlyLeftOf<T>(this List<KdbndpRange<T>> multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsStrictlyLeftOf)));
 
@@ -230,46 +348,74 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region IsStrictlyRightOf
 
     /// <summary>
-    /// Determines whether a multirange is strictly to the right of another multirange.
+    ///     Determines whether a multirange is strictly to the right of another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the first multirange is strictly to the right of the second multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the first multirange is strictly to the right of the second multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsStrictlyRightOf{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an
+    ///     EF Core LINQ query.
+    /// </exception>
     public static bool IsStrictlyRightOf<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsStrictlyRightOf)));
 
     /// <summary>
-    /// Determines whether a multirange is strictly to the right of another multirange.
+    ///     Determines whether a multirange is strictly to the right of another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the first multirange is strictly to the right of the second multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the first multirange is strictly to the right of the second multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsStrictlyRightOf{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part
+    ///     of an EF Core LINQ query.
+    /// </exception>
     public static bool IsStrictlyRightOf<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsStrictlyRightOf)));
 
     /// <summary>
-    /// Determines whether a multirange is strictly to the right of a range.
+    ///     Determines whether a multirange is strictly to the right of a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange is strictly to the right of the range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange is strictly to the right of the range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsStrictlyRightOf{T}(KdbndpRange{T}[], KdbndpRange{T})" /> is only intended for use via SQL translation as part of an EF
+    ///     Core LINQ query.
+    /// </exception>
     public static bool IsStrictlyRightOf<T>(this KdbndpRange<T>[] multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsStrictlyRightOf)));
 
     /// <summary>
-    /// Determines whether a multirange is strictly to the right of a range.
+    ///     Determines whether a multirange is strictly to the right of a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange is strictly to the right of the range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange is strictly to the right of the range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsStrictlyRightOf{T}(List{KdbndpRange{T}}, KdbndpRange{T})" /> is only intended for use via SQL translation as part of an
+    ///     EF Core LINQ query.
+    /// </exception>
     public static bool IsStrictlyRightOf<T>(this List<KdbndpRange<T>> multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsStrictlyRightOf)));
 
@@ -278,46 +424,74 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region DoesNotExtendLeftOf
 
     /// <summary>
-    /// Determines whether a multirange does not extend to the left of another multirange.
+    ///     Determines whether a multirange does not extend to the left of another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the first multirange does not extend to the left of the multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the first multirange does not extend to the left of the multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="DoesNotExtendLeftOf{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an
+    ///     EF Core LINQ query.
+    /// </exception>
     public static bool DoesNotExtendLeftOf<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DoesNotExtendLeftOf)));
 
     /// <summary>
-    /// Determines whether a multirange does not extend to the left of another multirange.
+    ///     Determines whether a multirange does not extend to the left of another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the first multirange does not extend to the left of the multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the first multirange does not extend to the left of the multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="DoesNotExtendLeftOf{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as
+    ///     part of an EF Core LINQ query.
+    /// </exception>
     public static bool DoesNotExtendLeftOf<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DoesNotExtendLeftOf)));
 
     /// <summary>
-    /// Determines whether a multirange does not extend to the left of a range.
+    ///     Determines whether a multirange does not extend to the left of a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange does not extend to the left of the range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange does not extend to the left of the range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="DoesNotExtendLeftOf{T}(KdbndpRange{T}[], KdbndpRange{T})" /> is only intended for use via SQL translation as part of an
+    ///     EF Core LINQ query.
+    /// </exception>
     public static bool DoesNotExtendLeftOf<T>(this KdbndpRange<T>[] multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DoesNotExtendLeftOf)));
 
     /// <summary>
-    /// Determines whether a multirange does not extend to the left of a range.
+    ///     Determines whether a multirange does not extend to the left of a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange does not extend to the left of the range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange does not extend to the left of the range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="DoesNotExtendLeftOf{T}(List{KdbndpRange{T}}, KdbndpRange{T})" /> is only intended for use via SQL translation as part of
+    ///     an EF Core LINQ query.
+    /// </exception>
     public static bool DoesNotExtendLeftOf<T>(this List<KdbndpRange<T>> multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DoesNotExtendLeftOf)));
 
@@ -326,46 +500,74 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region DoesNotExtendRightOf
 
     /// <summary>
-    /// Determines whether a multirange does not extend to the right of another multirange.
+    ///     Determines whether a multirange does not extend to the right of another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the first multirange does not extend to the right of the multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the first multirange does not extend to the right of the multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="DoesNotExtendRightOf{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of
+    ///     an EF Core LINQ query.
+    /// </exception>
     public static bool DoesNotExtendRightOf<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DoesNotExtendRightOf)));
 
     /// <summary>
-    /// Determines whether a multirange does not extend to the right of another multirange.
+    ///     Determines whether a multirange does not extend to the right of another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the first multirange does not extend to the right of the multirange; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the first multirange does not extend to the right of the multirange; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="DoesNotExtendRightOf{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as
+    ///     part of an EF Core LINQ query.
+    /// </exception>
     public static bool DoesNotExtendRightOf<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DoesNotExtendRightOf)));
 
     /// <summary>
-    /// Determines whether a multirange does not extend to the right of a range.
+    ///     Determines whether a multirange does not extend to the right of a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange does not extend to the right of the range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange does not extend to the right of the range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="DoesNotExtendRightOf{T}(KdbndpRange{T}[], KdbndpRange{T})" /> is only intended for use via SQL translation as part of an
+    ///     EF Core LINQ query.
+    /// </exception>
     public static bool DoesNotExtendRightOf<T>(this KdbndpRange<T>[] multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DoesNotExtendRightOf)));
 
     /// <summary>
-    /// Determines whether a multirange does not extend to the right of a range.
+    ///     Determines whether a multirange does not extend to the right of a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multirange does not extend to the right of the range; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange does not extend to the right of the range; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="DoesNotExtendRightOf{T}(List{KdbndpRange{T}}, KdbndpRange{T})" /> is only intended for use via SQL translation as part of
+    ///     an EF Core LINQ query.
+    /// </exception>
     public static bool DoesNotExtendRightOf<T>(this List<KdbndpRange<T>> multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(DoesNotExtendRightOf)));
 
@@ -374,46 +576,74 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region IsAdjacentTo
 
     /// <summary>
-    /// Determines whether a multirange is adjacent to another multirange.
+    ///     Determines whether a multirange is adjacent to another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multiranges are adjacent; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multiranges are adjacent; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsAdjacentTo{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF Core
+    ///     LINQ query.
+    /// </exception>
     public static bool IsAdjacentTo<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsAdjacentTo)));
 
     /// <summary>
-    /// Determines whether a multirange is adjacent to another multirange.
+    ///     Determines whether a multirange is adjacent to another multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
     /// <returns>
-    /// <value>true</value> if the multiranges are adjacent; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multiranges are adjacent; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsAdjacentTo{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part of
+    ///     an EF Core LINQ query.
+    /// </exception>
     public static bool IsAdjacentTo<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsAdjacentTo)));
 
     /// <summary>
-    /// Determines whether a multirange is adjacent to a range.
+    ///     Determines whether a multirange is adjacent to a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange and range are adjacent; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange and range are adjacent; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsAdjacentTo{T}(KdbndpRange{T}[], KdbndpRange{T})" /> is only intended for use via SQL translation as part of an EF Core
+    ///     LINQ query.
+    /// </exception>
     public static bool IsAdjacentTo<T>(this KdbndpRange<T>[] multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsAdjacentTo)));
 
     /// <summary>
-    /// Determines whether a multirange is adjacent to a range.
+    ///     Determines whether a multirange is adjacent to a range.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
     /// <param name="range">The range.</param>
     /// <returns>
-    /// <value>true</value> if the multirange and range are adjacent; otherwise, <value>false</value>.
+    ///     <value>true</value>
+    ///     if the multirange and range are adjacent; otherwise,
+    ///     <value>false</value>
+    ///     .
     /// </returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="IsAdjacentTo{T}(List{KdbndpRange{T}}, KdbndpRange{T})" /> is only intended for use via SQL translation as part of an EF
+    ///     Core LINQ query.
+    /// </exception>
     public static bool IsAdjacentTo<T>(this List<KdbndpRange<T>> multirange, KdbndpRange<T> range)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(IsAdjacentTo)));
 
@@ -422,24 +652,28 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region Union
 
     /// <summary>
-    /// Returns the set union, which means unique elements that appear in either of two multiranges.
+    ///     Returns the set union, which means unique elements that appear in either of two multiranges.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
-    /// <returns>
-    /// A multirange containing the unique elements that appear in either multirange.
-    /// </returns>
+    /// <returns>A multirange containing the unique elements that appear in either multirange.</returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Union{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF Core LINQ
+    ///     query.
+    /// </exception>
     public static KdbndpRange<T>[] Union<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Union)));
 
     /// <summary>
-    /// Returns the set union, which means unique elements that appear in either of two multiranges.
+    ///     Returns the set union, which means unique elements that appear in either of two multiranges.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
-    /// <returns>
-    /// A multirange containing the unique elements that appear in either multirange.
-    /// </returns>
+    /// <returns>A multirange containing the unique elements that appear in either multirange.</returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Union{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part of an EF
+    ///     Core LINQ query.
+    /// </exception>
     public static List<KdbndpRange<T>> Union<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Union)));
 
@@ -448,24 +682,28 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region Intersect
 
     /// <summary>
-    /// Returns the set intersection, which means elements that appear in each of two multiranges.
+    ///     Returns the set intersection, which means elements that appear in each of two multiranges.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
-    /// <returns>
-    /// A multirange containing the elements that appear in both ranges.
-    /// </returns>
+    /// <returns>A multirange containing the elements that appear in both ranges.</returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Intersect{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF Core
+    ///     LINQ query.
+    /// </exception>
     public static KdbndpRange<T>[] Intersect<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Intersect)));
 
     /// <summary>
-    /// Returns the set intersection, which means elements that appear in each of two multiranges.
+    ///     Returns the set intersection, which means elements that appear in each of two multiranges.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
-    /// <returns>
-    /// A multirange containing the elements that appear in both ranges.
-    /// </returns>
+    /// <returns>A multirange containing the elements that appear in both ranges.</returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Intersect{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part of an
+    ///     EF Core LINQ query.
+    /// </exception>
     public static List<KdbndpRange<T>> Intersect<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Intersect)));
 
@@ -474,24 +712,28 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region Except
 
     /// <summary>
-    /// Returns the set difference, which means the elements of one multirange that do not appear in a second multirange.
+    ///     Returns the set difference, which means the elements of one multirange that do not appear in a second multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
-    /// <returns>
-    /// A multirange containing the elements that appear in the first range, but not the second range.
-    /// </returns>
+    /// <returns>A multirange containing the elements that appear in the first range, but not the second range.</returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Except{T}(KdbndpRange{T}[], KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF Core LINQ
+    ///     query.
+    /// </exception>
     public static KdbndpRange<T>[] Except<T>(this KdbndpRange<T>[] multirange1, KdbndpRange<T>[] multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Except)));
 
     /// <summary>
-    /// Returns the set difference, which means the elements of one multirange that do not appear in a second multirange.
+    ///     Returns the set difference, which means the elements of one multirange that do not appear in a second multirange.
     /// </summary>
     /// <param name="multirange1">The first multirange.</param>
     /// <param name="multirange2">The second multirange.</param>
-    /// <returns>
-    /// A multirange containing the elements that appear in the first range, but not the second range.
-    /// </returns>
+    /// <returns>A multirange containing the elements that appear in the first range, but not the second range.</returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Except{T}(List{KdbndpRange{T}}, List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part of an EF
+    ///     Core LINQ query.
+    /// </exception>
     public static List<KdbndpRange<T>> Except<T>(this List<KdbndpRange<T>> multirange1, List<KdbndpRange<T>> multirange2)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Except)));
 
@@ -500,22 +742,25 @@ public static class KdbndpMultirangeDbFunctionsExtensions
     #region Merge
 
     /// <summary>
-    /// Computes the smallest range that includes the entire multirange.
+    ///     Computes the smallest range that includes the entire multirange.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
-    /// <returns>
-    /// The smallest range that includes the entire multirange.
-    /// </returns>
+    /// <returns>The smallest range that includes the entire multirange.</returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Merge{T}(KdbndpRange{T}[])" /> is only intended for use via SQL translation as part of an EF Core LINQ query.
+    /// </exception>
     public static KdbndpRange<T> Merge<T>(this KdbndpRange<T>[] multirange)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Merge)));
 
     /// <summary>
-    /// Computes the smallest range that includes the entire multirange.
+    ///     Computes the smallest range that includes the entire multirange.
     /// </summary>
     /// <param name="multirange">The multirange.</param>
-    /// <returns>
-    /// The smallest range that includes the entire multirange.
-    /// </returns>
+    /// <returns>The smallest range that includes the entire multirange.</returns>
+    /// <exception cref="NotSupportedException">
+    ///     <see cref="Merge{T}(List{KdbndpRange{T}})" /> is only intended for use via SQL translation as part of an EF
+    ///     Core LINQ query.
+    /// </exception>
     public static KdbndpRange<T> Merge<T>(this List<KdbndpRange<T>> multirange)
         => throw new InvalidOperationException(CoreStrings.FunctionOnClient(nameof(Merge)));
 

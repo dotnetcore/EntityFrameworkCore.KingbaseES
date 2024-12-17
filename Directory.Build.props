@@ -10,6 +10,7 @@
     <SignAssembly>true</SignAssembly>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <ImplicitUsings>true</ImplicitUsings>
+	<PackageIcon>icon.png</PackageIcon>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

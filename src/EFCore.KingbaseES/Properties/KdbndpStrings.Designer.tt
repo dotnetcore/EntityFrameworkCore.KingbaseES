@@ -1,5 +1,0 @@
-<#
-    Session["ResourceFile"] = "KdbndpStrings.resx";
-    Session["LoggingDefinitionsClass"] = "Diagnostics.Internal.KdbndpLoggingDefinitions";
-#>
-<#@ include file="..\..\..\tools\Resources.tt" #>

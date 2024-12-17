@@ -15,6 +15,7 @@
     <NoWarn>EF9100</NoWarn>
     <AssemblyOriginatorKeyFile>..\..\Npgsql.snk</AssemblyOriginatorKeyFile>
     <PackageIcon>icon.png</PackageIcon>
+    <PackageLicenseExpression>PostgreSQL</PackageLicenseExpression>
     <!-- Precompiled query is experimental -->
   </PropertyGroup>
 

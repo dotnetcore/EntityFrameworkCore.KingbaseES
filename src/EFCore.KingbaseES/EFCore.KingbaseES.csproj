@@ -16,6 +16,8 @@
     <AssemblyOriginatorKeyFile>..\..\Npgsql.snk</AssemblyOriginatorKeyFile>
     <PackageIcon>icon.png</PackageIcon>
     <PackageLicenseExpression>PostgreSQL</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/dotnetcore/EntityFrameworkCore.KingbaseES</PackageProjectUrl>
     <!-- Precompiled query is experimental -->
   </PropertyGroup>
 
@@ -33,6 +35,10 @@
     <Compile Include="..\Shared\*.cs" />
     <Content Include="..\..\icon.png" Link="icon.png" />
     <None Include="..\..\icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\README.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>

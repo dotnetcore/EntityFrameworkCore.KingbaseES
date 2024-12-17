@@ -1,0 +1,24 @@
+  <Project>
+  <PropertyGroup>
+    <EFCoreVersion>[9.0.0,10.0.0)</EFCoreVersion>
+    <MicrosoftExtensionsVersion>9.0.0</MicrosoftExtensionsVersion>
+    <KdbndpVersion>9.0.2</KdbndpVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(EFCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(EFCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Abstractions" Version="$(EFCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational.Specification.Tests" Version="$(EFCoreVersion)" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(EFCoreVersion)" />
+
+    <PackageVersion Include="Microsoft.Extensions.Configuration.Json" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="$(MicrosoftExtensionsVersion)" />
+    <PackageVersion Include="Microsoft.Extensions.Logging" Version="$(MicrosoftExtensionsVersion)" />
+
+    <PackageVersion Include="Kdbndp" Version="$(KdbndpVersion)" />
+    <PackageVersion Include="Kdbndp.NodaTime" Version="$(KdbndpVersion)" />
+    <PackageVersion Include="Kdbndp.NetTopologySuite" Version="$(KdbndpVersion)" />
+    <PackageVersion Include="Kdbndp.DependencyInjection" Version="$(KdbndpVersion)" />
+  </ItemGroup>
+</Project>

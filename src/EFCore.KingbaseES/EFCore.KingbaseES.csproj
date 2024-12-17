@@ -1,0 +1,61 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>DotNetCore.EntityFrameworkCore.KingbaseES</AssemblyName>
+    <RootNamespace>DotNetCore.EntityFrameworkCore.KingbaseES</RootNamespace>
+    <TargetFramework>net9.0</TargetFramework>
+    <Version>9.0.0</Version>
+    <Authors>NCC;Jeffcky</Authors>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/dotnetcore/EntityFrameworkCore.KingbaseES</RepositoryUrl>
+    <Description>KingbaseES provider for Entity Framework Core.</Description>
+    <PackageTags>KingbaseES;kdbndp;Entity Framework Core;entity-framework-core;ef;efcore;orm;sql</PackageTags>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesAssemblyToPackage</TargetsForTfmSpecificBuildOutput>
+    <NoWarn>EF9100</NoWarn>
+    <AssemblyOriginatorKeyFile>..\..\Npgsql.snk</AssemblyOriginatorKeyFile>
+    <!-- Precompiled query is experimental -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- PrivateAssets="none" is set to flow the EF Core analyzer to users referencing this package https://github.com/aspnet/EntityFrameworkCore/pull/11350 -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" PrivateAssets="none" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" PrivateAssets="none" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Shared\*.cs" />
+
+    <None Update="Properties\KdbndpStrings.Designer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>KdbndpStrings.Designer.cs</LastGenOutput>
+    </None>
+
+    <None Update="Properties\SqlServerStrings.Designer.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+    </None>
+
+    <EmbeddedResource Update="Properties\KdbndpStrings.resx">
+      <CustomToolNamespace>Kdbndp.EntityFrameworkCore.KingbaseES.Internal</CustomToolNamespace>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Target Name="CopyProjectReferencesAssemblyToPackage">
+    <ItemGroup>
+      <TfmSpecificPackageFile Include="Lib\Kdbndp.dll">
+        <PackagePath>lib\$(TargetFramework)</PackagePath>
+      </TfmSpecificPackageFile>
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="Kdbndp">
+      <HintPath>Lib\Kdbndp.dll</HintPath>
+      <PrivateAssets>all</PrivateAssets>
+    </Reference>
+  </ItemGroup>
+
+</Project>

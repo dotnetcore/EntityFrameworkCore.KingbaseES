@@ -13,6 +13,7 @@
     <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesAssemblyToPackage</TargetsForTfmSpecificBuildOutput>
     <NoWarn>EF9100</NoWarn>
     <AssemblyOriginatorKeyFile>..\..\Npgsql.snk</AssemblyOriginatorKeyFile>
+    <PackageIcon>icon.png</PackageIcon>
     <!-- Precompiled query is experimental -->
   </PropertyGroup>
 
@@ -28,6 +29,11 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\*.cs" />
+    <Content Include="..\..\icon.png" Link="icon.png" />
+    <None Include="..\..\icon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
 
     <None Update="Properties\KdbndpStrings.Designer.tt">
       <Generator>TextTemplatingFileGenerator</Generator>

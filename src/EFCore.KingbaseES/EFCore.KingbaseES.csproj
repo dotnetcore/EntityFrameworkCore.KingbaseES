@@ -3,6 +3,7 @@
   <PropertyGroup>
     <AssemblyName>DotNetCore.EntityFrameworkCore.KingbaseES</AssemblyName>
     <RootNamespace>DotNetCore.EntityFrameworkCore.KingbaseES</RootNamespace>
+    <PackageId>DotNetCore.EntityFrameworkCore.KingbaseES</PackageId>
     <TargetFramework>net9.0</TargetFramework>
     <Version>9.0.0</Version>
     <Authors>NCC;Jeffcky</Authors>

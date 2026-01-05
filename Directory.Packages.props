@@ -1,7 +1,7 @@
-  <Project>
+<Project>
   <PropertyGroup>
-    <EFCoreVersion>[9.0.0,10.0.0)</EFCoreVersion>
-    <MicrosoftExtensionsVersion>9.0.0</MicrosoftExtensionsVersion>
+    <EFCoreVersion>10.0.0</EFCoreVersion>
+    <MicrosoftExtensionsVersion>10.0.0</MicrosoftExtensionsVersion>
     <KdbndpVersion>9.0.2</KdbndpVersion>
   </PropertyGroup>
 

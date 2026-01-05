@@ -45,6 +45,5 @@ public class KdbndpQueryCompilationContextFactory : IQueryCompilationContextFact
     /// </summary>
     public virtual QueryCompilationContext CreatePrecompiled(bool async, IReadOnlySet<string> nonNullableReferenceTypeParameters)
         => new KdbndpQueryCompilationContext(
-            _dependencies, _relationalDependencies, async, precompiling: true,
-            nonNullableReferenceTypeParameters);
+            _dependencies, _relationalDependencies, async, precompiling: true);
 }

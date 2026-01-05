@@ -206,30 +206,50 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
         var columnInfos = new List<PgTableValuedFunctionExpression.ColumnInfo>();
 
         // We're only interested in properties which actually exist in the JSON, filter out uninteresting shadow keys
-        foreach (var property in GetAllPropertiesInHierarchy(jsonQueryExpression.EntityType))
+        foreach (var property in jsonQueryExpression.StructuralType.GetPropertiesInHierarchy())
         {
             if (property.GetJsonPropertyName() is string jsonPropertyName)
             {
                 columnInfos.Add(
                     new PgTableValuedFunctionExpression.ColumnInfo
                     {
-                        Name = jsonPropertyName, TypeMapping = property.GetRelationalTypeMapping()
+                        Name = jsonPropertyName,
+                        TypeMapping = property.GetRelationalTypeMapping()
                     });
             }
         }
 
-        // Navigations represent nested JSON owned entities, which we also add to the AS clause, but with the JSON type.
-        foreach (var navigation in GetAllNavigationsInHierarchy(jsonQueryExpression.EntityType)
-                     .Where(
-                         n => n.ForeignKey.IsOwnership
-                             && n.TargetEntityType.IsMappedToJson()
-                             && n.ForeignKey.PrincipalToDependent == n))
+        switch (jsonQueryExpression.StructuralType)
         {
-            var jsonNavigationName = navigation.TargetEntityType.GetJsonPropertyName();
-            Check.DebugAssert(jsonNavigationName is not null, $"No JSON property name for navigation {navigation.Name}");
+            case IEntityType entityType:
+                foreach (var navigation in entityType.GetNavigationsInHierarchy()
+                    .Where(n => n.ForeignKey.IsOwnership
+                        && n.TargetEntityType.IsMappedToJson()
+                        && n.ForeignKey.PrincipalToDependent == n))
+                {
+                    var jsonNavigationName = navigation.TargetEntityType.GetJsonPropertyName();
+                    Check.DebugAssert(jsonNavigationName is not null, $"No JSON property name for navigation {navigation.Name}");
 
-            columnInfos.Add(
-                new PgTableValuedFunctionExpression.ColumnInfo { Name = jsonNavigationName, TypeMapping = jsonTypeMapping });
+                    columnInfos.Add(
+                        new PgTableValuedFunctionExpression.ColumnInfo { Name = jsonNavigationName, TypeMapping = jsonTypeMapping });
+                }
+
+                break;
+
+            case IComplexType complexType:
+                foreach (var complexProperty in complexType.GetComplexProperties())
+                {
+                    var jsonPropertyName = complexProperty.ComplexType.GetJsonPropertyName();
+                    Check.DebugAssert(jsonPropertyName is not null, $"No JSON property name for complex property {complexProperty.Name}");
+
+                    columnInfos.Add(
+                        new PgTableValuedFunctionExpression.ColumnInfo { Name = jsonPropertyName, TypeMapping = jsonTypeMapping });
+                }
+
+                break;
+
+            default:
+                throw new UnreachableException();
         }
 
         // json_to_recordset requires the nested JSON document - it does not accept a path within a containing JSON document (like SQL
@@ -254,21 +274,12 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
         return new ShapedQueryExpression(
             selectExpression,
             new RelationalStructuralTypeShaperExpression(
-                jsonQueryExpression.EntityType,
+                jsonQueryExpression.StructuralType,
                 new ProjectionBindingExpression(
                     selectExpression,
                     new ProjectionMember(),
                     typeof(ValueBuffer)),
                 false));
-
-        // TODO: Move these to IEntityType?
-        static IEnumerable<IProperty> GetAllPropertiesInHierarchy(IEntityType entityType)
-            => entityType.GetAllBaseTypes().Concat(entityType.GetDerivedTypesInclusive())
-                .SelectMany(t => t.GetDeclaredProperties());
-
-        static IEnumerable<INavigation> GetAllNavigationsInHierarchy(IEntityType entityType)
-            => entityType.GetAllBaseTypes().Concat(entityType.GetDerivedTypesInclusive())
-                .SelectMany(t => t.GetDeclaredNavigations());
     }
 
     /// <summary>
@@ -1096,46 +1107,18 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    protected override bool IsValidSelectExpressionForExecuteDelete(
-        SelectExpression selectExpression,
-        StructuralTypeShaperExpression shaper,
-        [NotNullWhen(true)] out TableExpression? tableExpression)
-    {
-        // The default relational behavior is to allow only single-table expressions, and the only permitted feature is a predicate.
-        // Here we extend this to also inner joins to tables, which we generate via the KingbaseES-specific USING construct.
-        if (selectExpression is
-            {
-                Orderings: [],
-                Offset: null,
-                Limit: null,
-                GroupBy: [],
-                Having: null
-            })
-        {
-            TableExpressionBase? table = null;
-            if (selectExpression.Tables.Count == 1)
-            {
-                table = selectExpression.Tables[0];
-            }
-            else if (selectExpression.Tables.All(t => t is TableExpression or InnerJoinExpression))
-            {
-                var projectionBindingExpression = (ProjectionBindingExpression)shaper.ValueBufferExpression;
-                var entityProjectionExpression =
-                    (StructuralTypeProjectionExpression)selectExpression.GetProjection(projectionBindingExpression);
-                var column = entityProjectionExpression.BindProperty(shaper.StructuralType.GetProperties().First());
-                table = selectExpression.Tables.Select(t => t.UnwrapJoin()).Single(t => t.Alias == column.TableAlias);
-            }
-
-            if (table is TableExpression te)
-            {
-                tableExpression = te;
-                return true;
-            }
-        }
-
-        tableExpression = null;
-        return false;
-    }
+    protected override bool IsValidSelectExpressionForExecuteDelete(SelectExpression selectExpression)
+       // The default relational behavior is to allow only single-table expressions, and the only permitted feature is a predicate.
+       // Here we extend this to also inner joins to tables, which we generate via the PostgreSQL-specific USING construct.
+       => selectExpression is
+       {
+           Orderings: [],
+           Offset: null,
+           Limit: null,
+           GroupBy: [],
+           Having: null
+       }
+       && selectExpression.Tables[0] is TableExpression && selectExpression.Tables.Skip(1).All(t => t is InnerJoinExpression);
 
     // KingbaseES unnest is guaranteed to return output rows in the same order as its input array,
     // https://www.KingbaseES.org/docs/current/functions-array.html.

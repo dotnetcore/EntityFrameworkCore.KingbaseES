@@ -19,8 +19,7 @@ public class KdbndpQueryCompilationContext : RelationalQueryCompilationContext
         RelationalQueryCompilationContextDependencies relationalDependencies,
         bool async)
         : this(
-            dependencies, relationalDependencies, async, precompiling: false,
-            nonNullableReferenceTypeParameters: null)
+            dependencies, relationalDependencies, async, precompiling: false)
     {
     }
 
@@ -34,9 +33,8 @@ public class KdbndpQueryCompilationContext : RelationalQueryCompilationContext
         QueryCompilationContextDependencies dependencies,
         RelationalQueryCompilationContextDependencies relationalDependencies,
         bool async,
-        bool precompiling,
-        IReadOnlySet<string>? nonNullableReferenceTypeParameters)
-        : base(dependencies, relationalDependencies, async, precompiling, nonNullableReferenceTypeParameters)
+        bool precompiling)
+        : base(dependencies, relationalDependencies, async, precompiling)
     {
     }
 

@@ -29,9 +29,7 @@ internal static class Check
 
         if (value.Count == 0)
         {
-            NotEmpty(parameterName, nameof(parameterName));
-
-            throw new ArgumentException(AbstractionsStrings.CollectionArgumentIsEmpty(parameterName));
+            ThrowNotEmpty(parameterName);
         }
 
         return value;
@@ -40,16 +38,11 @@ internal static class Check
     [ContractAnnotation("value:null => halt")]
     public static string NotEmpty([NotNull] string? value, [InvokerParameterName] string parameterName)
     {
-        if (value is null)
-        {
-            NotEmpty(parameterName, nameof(parameterName));
-            throw new ArgumentNullException(parameterName);
-        }
+        NotNull(value, parameterName);
 
         if (value.Trim().Length == 0)
         {
-            NotEmpty(parameterName, nameof(parameterName));
-            throw new ArgumentException(AbstractionsStrings.ArgumentIsEmpty(parameterName));
+            ThrowStringArgumentEmpty(parameterName);
         }
 
         return value;
@@ -59,9 +52,7 @@ internal static class Check
     {
         if (value is not null && value.Length == 0)
         {
-            NotEmpty(parameterName, nameof(parameterName));
-
-            throw new ArgumentException(AbstractionsStrings.ArgumentIsEmpty(parameterName));
+            ThrowStringArgumentEmpty(parameterName);
         }
 
         return value;
@@ -73,9 +64,7 @@ internal static class Check
     {
         if (value is { Count: 0 })
         {
-            NotEmpty(parameterName, nameof(parameterName));
-
-            throw new ArgumentException(AbstractionsStrings.ArgumentIsEmpty(parameterName));
+            ThrowNotEmpty(parameterName);
         }
 
         return value;
@@ -108,7 +97,7 @@ internal static class Check
         {
             NotEmpty(parameterName, nameof(parameterName));
 
-            throw new ArgumentException(AbstractionsStrings.CollectionArgumentHasEmptyElements(parameterName));
+            ThrowNotEmpty(parameterName);
         }
 
         return value;
@@ -127,4 +116,24 @@ internal static class Check
     [DoesNotReturn]
     public static void DebugFail(string message)
         => throw new Exception($"Check.DebugFail failed: {message}");
+
+    [DoesNotReturn]
+    private static void ThrowArgumentNull(string parameterName)
+        => throw new ArgumentNullException(parameterName);
+
+    [DoesNotReturn]
+    private static void ThrowNotEmpty(string parameterName)
+        => throw new ArgumentException(AbstractionsStrings.CollectionArgumentIsEmpty, parameterName);
+
+    [DoesNotReturn]
+    private static void ThrowStringArgumentEmpty(string parameterName)
+        => throw new ArgumentException(AbstractionsStrings.ArgumentIsEmpty, parameterName);
+
+    [DoesNotReturn]
+    private static void ThrowCollectionHasEmptyElements(string parameterName)
+        => throw new ArgumentException(AbstractionsStrings.CollectionArgumentHasEmptyElements, parameterName);
+
+    [DoesNotReturn]
+    private static void ThrowArgumentException(string message, string parameterName)
+        => throw new ArgumentException(message, parameterName);
 }

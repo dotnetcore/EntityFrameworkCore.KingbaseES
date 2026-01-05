@@ -3,7 +3,7 @@ using Kdbndp.EntityFrameworkCore.KingbaseES.Query.Expressions.Internal;
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Query.Internal;
 
 /// <summary>
-///     Converts the relational <see cref="NonQueryExpression" /> into a PG-specific <see cref="PgDeleteExpression" />, which
+///     Converts the relational <see cref="DeleteExpression" /> into a PG-specific <see cref="PgDeleteExpression" />, which
 ///     precisely models a DELETE statement in KingbaseES. This is done to handle the PG-specific USING syntax for table joining.
 /// </summary>
 public class KdbndpDeleteConvertingExpressionVisitor : ExpressionVisitor

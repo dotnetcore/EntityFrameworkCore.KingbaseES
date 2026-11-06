@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
@@ -24,8 +25,13 @@ public class KdbndpJsonTypeMapping : KdbndpTypeMapping
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public KdbndpJsonTypeMapping(string storeType, Type clrType)
-        : base(storeType, clrType, storeType == "jsonb" ? KdbndpDbType.Jsonb : KdbndpDbType.Json)
+    public KdbndpJsonTypeMapping(string storeType, Type clrType, CoreTypeMapping? elementTypeMapping = null)
+        : base(
+            storeType,
+            clrType,
+            storeType == "jsonb" ? KdbndpDbType.Jsonb : KdbndpDbType.Json,
+            jsonValueReaderWriter: JsonStringReaderWriter.Instance,
+            elementTypeMapping: elementTypeMapping)
     {
         if (storeType != "json" && storeType != "jsonb")
         {

@@ -130,6 +130,50 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
                 identifier: [], // TODO
                 _queryCompilationContext.SqlAliasManager);
         }
+        else if (sqlExpression.TypeMapping is KdbndpJsonTypeMapping { ElementTypeMapping: not null, StoreType: var storeType })
+        {
+            // Scalar/primitive collection mapped to a JSON array, like in other providers.
+            // Happens for scalar collections nested within JSON documents, or if the user explicitly mapped to JSON instead of
+            // the default KingbaseES array.
+            // Translate to SELECT element::int FROM jsonb_array_elements_text(...) WITH ORDINALITY
+            var (ordinalityColumn, ordinalityComparer) = GenerateOrdinalityIdentifier(tableAlias);
+
+            SqlExpression elementProjection = new ColumnExpression(
+                "element",
+                tableAlias,
+                typeof(string),
+                _typeMappingSource.FindMapping(typeof(string)),
+                isElementNullable);
+
+            // If the projected type is anything other than text, apply a cast (jsonb_array_elements_text returns text).
+            if (!elementTypeMapping!.StoreType.Equals("text", StringComparison.OrdinalIgnoreCase))
+            {
+                elementProjection = _sqlExpressionFactory.Convert(
+                    elementProjection,
+                    elementClrType.UnwrapNullableType(),
+                    elementTypeMapping);
+            }
+
+            selectExpression = new SelectExpression(
+                [
+                    new PgTableValuedFunctionExpression(
+                        tableAlias,
+                        storeType switch
+                        {
+                            "jsonb" => "jsonb_array_elements_text",
+                            "json" => "json_array_elements_text",
+                            _ => throw new UnreachableException()
+                        },
+                        [sqlExpression],
+                        columnInfos: [new("element")],
+                        withOrdinality: true)
+                ],
+                elementProjection,
+                identifier: [(ordinalityColumn, ordinalityComparer)],
+                _queryCompilationContext.SqlAliasManager);
+
+            selectExpression.AppendOrdering(new OrderingExpression(ordinalityColumn, ascending: true));
+        }
         else
         {
             // Note that for unnest we have a special expression type extending TableValuedFunctionExpression, adding the ability to provide
@@ -365,6 +409,27 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
     /// </summary>
     protected override ShapedQueryExpression? TranslateAny(ShapedQueryExpression source, LambdaExpression? predicate)
     {
+        // Pattern match: x.JsonArray.Any()
+        // Translation: jsonb_array_length(x.json_array) > 0 instead of EXISTS (SELECT 1 FROM jsonb_array_elements(x.Array))
+        if (predicate is null && source.TryExtractJsonArray(out var jsonArray, out _, out _, ignoreOrderings: true))
+        {
+            return BuildSimplifiedShapedQuery(
+                source,
+                _sqlExpressionFactory.GreaterThan(
+                    _sqlExpressionFactory.Function(
+                        jsonArray.TypeMapping!.StoreType switch
+                        {
+                            "jsonb" => "jsonb_array_length",
+                            "json" => "json_array_length",
+                            _ => throw new UnreachableException()
+                        },
+                        [jsonArray],
+                        nullable: true,
+                        argumentsPropagateNullability: TrueArrays[1],
+                        typeof(int)),
+                    _sqlExpressionFactory.Constant(0)));
+        }
+
         if ((source.TryExtractArray(out var array, ignoreOrderings: true)
                 || source.TryConvertValuesToArray(out array, ignoreOrderings: true))
             && source.QueryExpression is SelectExpression { Tables: [{ Alias: var tableAlias }] })
@@ -591,6 +656,30 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
     /// </summary>
     protected override ShapedQueryExpression? TranslateContains(ShapedQueryExpression source, Expression item)
     {
+        // Contains over JSON array: array ? 'foo' for text, array @> item for bool/numeric
+        if (source.TryExtractJsonArray(out var jsonArray, out _, out _, ignoreOrderings: true)
+            && TranslateExpression(item, applyDefaultTypeMapping: false) is SqlExpression translatedJsonItem)
+        {
+            (translatedJsonItem, jsonArray) = _sqlExpressionFactory.ApplyTypeMappingsOnItemAndArray(translatedJsonItem, jsonArray);
+
+            // TODO: Null semantics - need to coalesce NULL on the item side to 'null'::jsonb.
+            // TODO: For constant/parameter, use JsonValueReaderWriter to produce the JSON value client-side
+            return BuildSimplifiedShapedQuery(
+                source,
+                _sqlExpressionFactory.Contains(
+                    jsonArray,
+                    _sqlExpressionFactory.Function(
+                        "to_jsonb",
+                        [translatedJsonItem is SqlConstantExpression { Value: string }
+                            ? _sqlExpressionFactory.Convert(
+                                translatedJsonItem, typeof(string), _typeMappingSource.FindMapping(typeof(string)))
+                            : translatedJsonItem],
+                        nullable: true,
+                        argumentsPropagateNullability: TrueArrays[1],
+                        typeof(string),
+                        _typeMappingSource.FindMapping("jsonb"))));
+        }
+
         // Note that most other simplifications convert ValuesExpression to unnest over array constructor, but we avoid doing that
         // here for Contains, since the relational translation for ValuesExpression is better.
         if (source.TryExtractArray(out var array, ignoreOrderings: true)
@@ -665,22 +754,48 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
     protected override ShapedQueryExpression? TranslateCount(ShapedQueryExpression source, LambdaExpression? predicate)
     {
         // Simplify x.Array.Count() => cardinality(x.Array) instead of SELECT COUNT(*) FROM unnest(x.Array)
-        if (predicate is null && source.TryExtractArray(out var array, ignoreOrderings: true))
+        if (predicate is null)
         {
-            var translation = _sqlExpressionFactory.Function(
-                "cardinality",
-                [array],
-                nullable: true,
-                argumentsPropagateNullability: TrueArrays[1],
-                typeof(int));
+            if (source.TryExtractArray(out var array, ignoreOrderings: true))
+            {
+                var translation = _sqlExpressionFactory.Function(
+                    "cardinality",
+                    [array],
+                    nullable: true,
+                    argumentsPropagateNullability: TrueArrays[1],
+                    typeof(int));
 
 #pragma warning disable EF1001 // SelectExpression constructors are currently internal
-            return source.Update(
-                new SelectExpression(translation, _queryCompilationContext.SqlAliasManager),
-                Expression.Convert(
-                    new ProjectionBindingExpression(source.QueryExpression, new ProjectionMember(), typeof(int?)),
-                    typeof(int)));
+                return source.Update(
+                    new SelectExpression(translation, _queryCompilationContext.SqlAliasManager),
+                    Expression.Convert(
+                        new ProjectionBindingExpression(source.QueryExpression, new ProjectionMember(), typeof(int?)),
+                        typeof(int)));
 #pragma warning restore EF1001
+            }
+
+            if (source.TryExtractJsonArray(out var jsonArray, out _, out _, ignoreOrderings: true))
+            {
+                var translation = _sqlExpressionFactory.Function(
+                    jsonArray.TypeMapping!.StoreType switch
+                    {
+                        "jsonb" => "jsonb_array_length",
+                        "json" => "json_array_length",
+                        _ => throw new UnreachableException()
+                    },
+                    [jsonArray],
+                    nullable: true,
+                    argumentsPropagateNullability: TrueArrays[1],
+                    typeof(int));
+
+#pragma warning disable EF1001 // SelectExpression constructors are currently internal
+                return source.Update(
+                    new SelectExpression(translation, _queryCompilationContext.SqlAliasManager),
+                    Expression.Convert(
+                        new ProjectionBindingExpression(source.QueryExpression, new ProjectionMember(), typeof(int?)),
+                        typeof(int)));
+#pragma warning restore EF1001
+            }
         }
 
         return base.TranslateCount(source, predicate);
@@ -746,20 +861,40 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
         Expression index,
         bool returnDefault)
     {
-        // Simplify x.Array[1] => x.Array[1] (using the PG array subscript operator) instead of a subquery with LIMIT/OFFSET
-        // Note that we have unnest over multiranges, not just arrays - but multiranges don't support subscripting/slicing.
-        if (!returnDefault
-            && source.TryExtractArray(out var array, out var projectedColumn)
-            && TranslateExpression(index) is { } translatedIndex)
+        if (!returnDefault && TranslateExpression(index) is { } translatedIndex)
         {
-            // Note that KingbaseES arrays are 1-based, so adjust the index.
 #pragma warning disable EF1001 // SelectExpression constructors are currently internal
-            return source.UpdateQueryExpression(
-                new SelectExpression(
-                    _sqlExpressionFactory.ArrayIndex(
-                        array,
-                        GenerateOneBasedIndexExpression(translatedIndex), projectedColumn.IsNullable),
-                _queryCompilationContext.SqlAliasManager));
+            switch (source)
+            {
+                // Simplify x.Array[1] => x.Array[1] (using the PG array subscript operator) instead of a subquery with LIMIT/OFFSET
+                // Note that we have unnest over multiranges, not just arrays - but multiranges don't support subscripting/slicing.
+                case var _ when source.TryExtractArray(out var array, out var projectedColumn):
+                {
+                    // Note that KingbaseES arrays are 1-based, so adjust the index.
+                    return source.UpdateQueryExpression(
+                        new SelectExpression(
+                            _sqlExpressionFactory.ArrayIndex(
+                                array,
+                                GenerateOneBasedIndexExpression(translatedIndex), projectedColumn.IsNullable),
+                            _queryCompilationContext.SqlAliasManager));
+                }
+
+                case var _ when source.TryExtractJsonArray(out var jsonArray, out var projectedElement, out var isElementNullable):
+                {
+                    var (json, path) = jsonArray is JsonScalarExpression innerJsonScalarExpression
+                        ? (innerJsonScalarExpression.Json, innerJsonScalarExpression.Path.Append(new(translatedIndex)).ToArray())
+                        : (jsonArray, [new(translatedIndex)]);
+
+                    var translation = new JsonScalarExpression(
+                        json,
+                        path,
+                        projectedElement.Type,
+                        projectedElement.TypeMapping,
+                        isElementNullable);
+
+                    return source.UpdateQueryExpression(new SelectExpression(translation, _queryCompilationContext.SqlAliasManager));
+                }
+            }
 #pragma warning restore EF1001
         }
 
@@ -1099,6 +1234,137 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
         }
 
         return true;
+    }
+
+#pragma warning disable EF9002 // Type is for evaluation purposes only and is subject to change or removal in future updates.
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected override bool TrySerializeScalarToJson(
+        JsonScalarExpression target,
+        SqlExpression value,
+        [NotNullWhen(true)] out SqlExpression? jsonValue)
+    {
+        var jsonTypeMapping = ((ColumnExpression)target.Json).TypeMapping!;
+
+        if (
+            // The base implementation doesn't handle serializing arbitrary SQL expressions to JSON, since that's
+            // database-specific. In KingbaseES we simply do this by wrapping any expression in to_jsonb().
+            !base.TrySerializeScalarToJson(target, value, out jsonValue)
+            // In addition, for string, numeric and bool, the base implementation simply returns the value as-is, since most databases
+            // allow passing these native types directly to their JSON partial update function. In KingbaseES, jsonb_set() always
+            // requires jsonb, so we wrap those expressions with to_jsonb() as well.
+            || jsonValue.TypeMapping?.StoreType is not "jsonb" and not "json")
+        {
+            switch (value.TypeMapping!.StoreType)
+            {
+                case "jsonb" or "json":
+                    jsonValue = value;
+                    return true;
+
+                case "bytea":
+                    value = _sqlExpressionFactory.Function(
+                        "encode",
+                        [value, _sqlExpressionFactory.Constant("base64")],
+                        nullable: true,
+                        argumentsPropagateNullability: [true, true],
+                        typeof(string),
+                        _typeMappingSource.FindMapping(typeof(string))!);
+                    break;
+            }
+
+            // We now have a scalar value expression that needs to be passed to jsonb_set(), but jsonb_set() requires a json/jsonb
+            // argument, not e.g. text or int. So we need to wrap the argument in to_jsonb/to_json.
+            // Note that for structural types we always already get a jsonb/json value and have already exited above (no need for
+            // to_jsonb/to_json).
+
+            // One exception is if the value expression happens to be a JsonScalarExpression (e.g. copy scalar property from within
+            // one JSON document into another). For that case, rather than do to_jsonb(x.JsonbDoc ->> 'SomeProperty') - which extracts
+            // a jsonb property as text only to reconvert it back to jsonb - we just change the type mapping on the JsonScalarExpression
+            // to json/jsonb, in order to generate x.JsonbDoc -> 'SomeProperty' (no text extraction).
+            if (value is JsonScalarExpression jsonScalarValue
+                && jsonScalarValue.Json.TypeMapping?.StoreType == jsonTypeMapping.StoreType)
+            {
+                jsonValue = new JsonScalarExpression(
+                    jsonScalarValue.Json,
+                    jsonScalarValue.Path,
+                    jsonScalarValue.Type,
+                    jsonTypeMapping,
+                    jsonScalarValue.IsNullable);
+                return true;
+            }
+
+            jsonValue = _sqlExpressionFactory.Function(
+                jsonTypeMapping.StoreType switch
+                {
+                    "jsonb" => "to_jsonb",
+                    "json" => "to_json",
+                    _ => throw new UnreachableException()
+                },
+                // Make sure PG interprets constant values correctly by adding explicit typing based on the target property's type mapping.
+                // Note that we can only be here for scalar properties, for structural types we always already get a jsonb/json value
+                // and don't need to add to_jsonb/to_json.
+                [value is SqlConstantExpression ? _sqlExpressionFactory.Convert(value, target.Type, target.TypeMapping) : value],
+                nullable: true,
+                argumentsPropagateNullability: [true],
+                typeof(string),
+                jsonTypeMapping);
+        }
+
+        return true;
+    }
+#pragma warning restore EF9002
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    protected override SqlExpression? GenerateJsonPartialUpdateSetter(
+        Expression target,
+        SqlExpression value,
+        ref SqlExpression? existingSetterValue)
+    {
+        var (jsonColumn, path) = target switch
+        {
+            JsonScalarExpression j => ((ColumnExpression)j.Json, j.Path),
+            JsonQueryExpression j => (j.JsonColumn, j.Path),
+
+            _ => throw new UnreachableException(),
+        };
+
+        var jsonSet = _sqlExpressionFactory.Function(
+            jsonColumn.TypeMapping?.StoreType switch
+            {
+                "jsonb" => "jsonb_set",
+                "json" => "json_set",
+                _ => throw new UnreachableException()
+            },
+            arguments:
+            [
+                existingSetterValue ?? jsonColumn,
+                // Hack: Rendering of JSONPATH strings happens in value generation. We can have a special expression for modify to hold the
+                // IReadOnlyList<PathSegment> (just like Json{Scalar,Query}Expression), but instead we do the slight hack of packaging it
+                // as a constant argument; it will be unpacked and handled in SQL generation.
+                _sqlExpressionFactory.Constant(path, RelationalTypeMapping.NullMapping),
+                value
+            ],
+            nullable: true,
+            argumentsPropagateNullability: [true, true, true],
+            typeof(string),
+            jsonColumn.TypeMapping);
+
+        if (existingSetterValue is null)
+        {
+            return jsonSet;
+        }
+
+        existingSetterValue = jsonSet;
+        return null;
     }
 
     /// <summary>

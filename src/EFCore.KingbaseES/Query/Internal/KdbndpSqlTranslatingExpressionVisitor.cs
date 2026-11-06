@@ -241,9 +241,35 @@ public class KdbndpSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExp
             // further JSON operations may need to be composed. However, when the value extracted is a JSON null, a non-NULL jsonb value is
             // returned, and comparing that to relational NULL returns false.
             // Pattern-match this and force the use of ->> by changing the mapping to be a scalar rather than an entity type.
-            case SqlUnaryExpression
+            case SqlBinaryExpression
             {
                 OperatorType: ExpressionType.Equal or ExpressionType.NotEqual,
+                Left: JsonScalarExpression { TypeMapping: KdbndpOwnedJsonTypeMapping } operand,
+                Right: SqlConstantExpression { Value: null }
+            } binary:
+            {
+                return binary.Update(
+                    new JsonScalarExpression(
+                        operand.Json, operand.Path, operand.Type, _typeMappingSource.FindMapping("text"), operand.IsNullable),
+                    binary.Right);
+            }
+            case SqlBinaryExpression
+            {
+                OperatorType: ExpressionType.Equal or ExpressionType.NotEqual,
+                Left: SqlConstantExpression { Value: null },
+                Right: JsonScalarExpression { TypeMapping: KdbndpOwnedJsonTypeMapping } operand
+            } binary:
+            {
+                return binary.Update(
+                    binary.Left,
+                    new JsonScalarExpression(
+                        operand.Json, operand.Path, operand.Type, _typeMappingSource.FindMapping("text"), operand.IsNullable));
+            }
+            // Unfortunately EF isn't consistent in its representation of X IS NULL in the SQL tree - sometimes it's a SqlUnaryExpression with
+            // Equals, sometimes it's an X = NULL SqlBinaryExpression that later gets transformed to SqlUnaryExpression in the
+            // SqlNullabilityProcessor. We recognize both here.
+            case SqlUnaryExpression
+            {
                 Operand: JsonScalarExpression { TypeMapping: KdbndpOwnedJsonTypeMapping } operand
             } unary:
             {

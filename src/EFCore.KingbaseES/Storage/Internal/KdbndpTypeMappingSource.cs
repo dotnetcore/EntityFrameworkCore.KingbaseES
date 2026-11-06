@@ -313,8 +313,8 @@ public class KdbndpTypeMappingSource : RelationalTypeMappingSource
             { typeof(BigInteger), _bigInteger },
             { typeof(string), _text },
             { typeof(JsonDocument), _jsonbDocument },
-            // { typeof(JsonElement),                         _jsonbElement         },
-            { typeof(JsonElement), _jsonbOwned },
+            { typeof(JsonElement), _jsonbElement },
+            { typeof(JsonTypePlaceholder), _jsonbOwned },
             { typeof(char), _singleChar },
             { typeof(DateTime), LegacyTimestampBehavior ? _timestamp : _timestamptz },
             { typeof(DateOnly), _dateDateOnly },
@@ -382,6 +382,22 @@ public class KdbndpTypeMappingSource : RelationalTypeMappingSource
         var storeTypeName = mappingInfo.StoreTypeName;
         var storeTypeNameBase = mappingInfo.StoreTypeNameBase;
 
+        // EF Core creates JSON columns for owned/complex types mapped to JSON via JsonTypePlaceholder. When the column type is
+        // explicitly configured (e.g. HasColumnType("jsonb")), make sure we return the structural JSON mapping rather than falling
+        // through to the scalar JSON mappings below.
+        if (clrType == typeof(JsonTypePlaceholder))
+        {
+            if (string.Equals(storeTypeName, "jsonb", StringComparison.OrdinalIgnoreCase))
+            {
+                return _jsonbOwned;
+            }
+
+            if (string.Equals(storeTypeName, "json", StringComparison.OrdinalIgnoreCase))
+            {
+                return _jsonOwned;
+            }
+        }
+
         if (storeTypeName is not null)
         {
             if (StoreTypeMappings.TryGetValue(storeTypeName, out var mappings))
@@ -406,7 +422,12 @@ public class KdbndpTypeMappingSource : RelationalTypeMappingSource
                 // Map arbitrary user POCOs to JSON
                 if (storeTypeName is "jsonb" or "json")
                 {
-                    return new KdbndpJsonTypeMapping(storeTypeName, clrType);
+                    return FindCollectionMapping(
+                        mappingInfo,
+                        mappingInfo.ClrType,
+                        providerType: null,
+                        elementMapping: mappingInfo.CoreTypeMappingInfo.ElementTypeMapping)
+                        ?? new KdbndpJsonTypeMapping(storeTypeName, clrType);
                 }
 
                 return null;
@@ -534,6 +555,21 @@ public class KdbndpTypeMappingSource : RelationalTypeMappingSource
         Type? modelType,
         Type? providerType,
         CoreTypeMapping? elementMapping)
+        => FindCollectionMapping(info.StoreTypeName, modelType, providerType, elementMapping);
+
+    /// <summary>
+    ///     This is an internal API that supports the Entity Framework Core infrastructure and not subject to
+    ///     the same compatibility standards as public APIs. It may be changed or removed without notice in
+    ///     any release. You should only use it directly in your code with extreme caution and knowing that
+    ///     doing so can result in application failures when updating to a new Entity Framework Core release.
+    /// </summary>
+    public virtual RelationalTypeMapping? FindCollectionMapping(
+        string? storeType,
+        // Note that modelType is nullable (in the relational base signature it isn't) because of array scaffolding, i.e. we call
+        // FindCollectionMapping from our own FindMapping, where the clrType is null when scaffolding.
+        Type? modelType,
+        Type? providerType,
+        CoreTypeMapping? elementMapping)
     {
         if (elementMapping is not null and not RelationalTypeMapping)
         {
@@ -555,7 +591,6 @@ public class KdbndpTypeMappingSource : RelationalTypeMappingSource
             }
         }
 
-        var storeType = info.StoreTypeName;
         if (storeType is null)
         {
             if (modelType is null)
@@ -703,6 +738,26 @@ public class KdbndpTypeMappingSource : RelationalTypeMappingSource
                     relationalElementMapping)!;
             }
         }
+        else if ((storeType is "jsonb" or "json") && modelType is not null)
+        {
+            // This is a scalar collection mapped to JSON, which - unlike with other relational providers - is not the default: in
+            // KingbaseES we map to native arrays instead. However, when scalar collections are nested inside a JSON document, they
+            // obviously have to be JSON-mapped. In addition, users may decide to map to JSON instead of an array even outside JSON
+            // documents.
+#pragma warning disable EF1001 // Internal EF Core API usage.
+            var mapping = base.FindCollectionMapping(
+                new RelationalTypeMappingInfo(
+                    modelType, (RelationalTypeMapping?)elementMapping, storeTypeName: storeType, storeTypeNameBase: storeType),
+                modelType,
+                providerType,
+                elementMapping);
+
+            // If a multidimensional array is mapped to json/jsonb, EF returns a "primitive" collection whose element mapping is an
+            // array; EF does not support nested primitive collections. Return null so that the caller falls back to an opaque JSON
+            // type mapping without an element type mapping.
+            return mapping is { ElementTypeMapping: KdbndpArrayTypeMapping } ? null : mapping;
+#pragma warning restore EF1001
+        }
 
         return null;
 
@@ -747,6 +802,25 @@ public class KdbndpTypeMappingSource : RelationalTypeMappingSource
 
             return collectionType;
         }
+    }
+
+    /// <inheritdoc />
+    public override RelationalTypeMapping? FindMapping(IProperty property)
+    {
+        var typeMapping = (RelationalTypeMapping?)base.FindMapping(property);
+
+        if (typeMapping is KdbndpArrayTypeMapping arrayMapping
+            && property.DeclaringType.IsMappedToJson())
+        {
+            return FindCollectionMapping(
+                // TODO: Unfortunately GetContainerColumnType seems to return null at this point
+                property.DeclaringType.GetContainerColumnType() ?? "jsonb",
+                property.ClrType,
+                property.GetProviderClrType(),
+                arrayMapping.ElementTypeMapping);
+        }
+
+        return typeMapping;
     }
 
     /// <summary>

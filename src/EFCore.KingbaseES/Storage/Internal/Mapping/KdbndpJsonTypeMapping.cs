@@ -1,12 +1,14 @@
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Storage.Json;
 
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
 /// <summary>
 ///     Supports the older Kdbndp-specific JSON mapping, allowing mapping json/jsonb to text, to e.g.
 ///     <see cref="JsonElement" /> (weakly-typed mapping) or to arbitrary POCOs (but without them being modeled).
-///     For the standard EF JSON support, which relies on owned entity modeling, see <see cref="KdbndpOwnedJsonTypeMapping" />.
+///     For the standard EF JSON support, which relies on owned entity or complex type modeling, see
+///     <see cref="KdbndpStructuralJsonTypeMapping" />.
 /// </summary>
 public class KdbndpJsonTypeMapping : KdbndpTypeMapping
 {
@@ -24,8 +26,13 @@ public class KdbndpJsonTypeMapping : KdbndpTypeMapping
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public KdbndpJsonTypeMapping(string storeType, Type clrType)
-        : base(storeType, clrType, storeType == "jsonb" ? KdbndpDbType.Jsonb : KdbndpDbType.Json)
+    public KdbndpJsonTypeMapping(string storeType, Type clrType, CoreTypeMapping? elementTypeMapping = null)
+        : base(
+            storeType,
+            clrType,
+            storeType == "jsonb" ? KdbndpDbType.Jsonb : KdbndpDbType.Json,
+            jsonValueReaderWriter: JsonStringReaderWriter.Instance,
+            elementTypeMapping: elementTypeMapping)
     {
         if (storeType != "json" && storeType != "jsonb")
         {

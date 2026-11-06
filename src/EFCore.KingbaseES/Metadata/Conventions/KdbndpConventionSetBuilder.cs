@@ -51,8 +51,6 @@ public class KdbndpConventionSetBuilder : RelationalConventionSetBuilder
         conventionSet.ModelInitializedConventions.Add(
             new RelationalMaxIdentifierLengthConvention(63, Dependencies, RelationalDependencies));
 
-        conventionSet.PropertyAddedConventions.Add(new KdbndpJsonElementHackConvention());
-
         ValueGenerationConvention valueGenerationConvention = new KdbndpValueGenerationConvention(Dependencies, RelationalDependencies);
         ReplaceConvention(conventionSet.EntityTypeBaseTypeChangedConventions, valueGenerationConvention);
 

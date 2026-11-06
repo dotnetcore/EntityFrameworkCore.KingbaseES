@@ -87,8 +87,8 @@ public class KdbndpTypeMappingSource : RelationalTypeMappingSource
     private readonly KdbndpStringTypeMapping _jsonpath = new("jsonpath", KdbndpDbType.JsonPath);
 
     // JSON mappings - EF owned entity support
-    private readonly KdbndpOwnedJsonTypeMapping _jsonbOwned = new("jsonb");
-    private readonly KdbndpOwnedJsonTypeMapping _jsonOwned = new("json");
+    private readonly KdbndpStructuralJsonTypeMapping _jsonbOwned = new("jsonb");
+    private readonly KdbndpStructuralJsonTypeMapping _jsonOwned = new("json");
 
     // JSON mappings - older string/weakly-typed support
     private readonly KdbndpJsonTypeMapping _jsonbString = new("jsonb", typeof(string));

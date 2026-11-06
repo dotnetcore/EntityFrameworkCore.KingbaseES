@@ -7,7 +7,8 @@ namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 /// <summary>
 ///     Supports the older Kdbndp-specific JSON mapping, allowing mapping json/jsonb to text, to e.g.
 ///     <see cref="JsonElement" /> (weakly-typed mapping) or to arbitrary POCOs (but without them being modeled).
-///     For the standard EF JSON support, which relies on owned entity modeling, see <see cref="KdbndpOwnedJsonTypeMapping" />.
+///     For the standard EF JSON support, which relies on owned entity or complex type modeling, see
+///     <see cref="KdbndpStructuralJsonTypeMapping" />.
 /// </summary>
 public class KdbndpJsonTypeMapping : KdbndpTypeMapping
 {

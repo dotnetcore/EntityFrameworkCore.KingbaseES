@@ -130,8 +130,8 @@ public class KdbndpUpdateSqlGenerator : UpdateSqlGenerator
         if (columnModification.JsonPath is not (null or "$"))
         {
             Check.DebugAssert(
-                columnModification.TypeMapping is KdbndpOwnedJsonTypeMapping,
-                "ColumnModification with JsonPath but non-KdbndpOwnedJsonTypeMapping");
+                columnModification.TypeMapping is KdbndpStructuralJsonTypeMapping,
+                "ColumnModification with JsonPath but non-KdbndpStructuralJsonTypeMapping");
 
             if (columnModification.TypeMapping.StoreType is "json")
             {

@@ -5,11 +5,11 @@ using System.Text.Json;
 namespace Kdbndp.EntityFrameworkCore.KingbaseES.Storage.Internal.Mapping;
 
 /// <summary>
-///     Supports the standard EF JSON support, which relies on owned entity modeling.
+///     Supports the standard EF JSON support, which relies on owned entity or complex type modeling.
 ///     See <see cref="KdbndpJsonTypeMapping" /> for the older Kdbndp-specific support, which allows mapping json/jsonb to text, to e.g.
 ///     <see cref="JsonElement" /> (weakly-typed mapping) or to arbitrary POCOs (but without them being modeled).
 /// </summary>
-public class KdbndpOwnedJsonTypeMapping : JsonTypeMapping
+public class KdbndpStructuralJsonTypeMapping : JsonTypeMapping
 {
     /// <summary>
     ///     The database type used by Kdbndp (<see cref="KdbndpDbType.Json" /> or <see cref="KdbndpDbType.Jsonb" />.
@@ -34,7 +34,7 @@ public class KdbndpOwnedJsonTypeMapping : JsonTypeMapping
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    public KdbndpOwnedJsonTypeMapping(string storeType)
+    public KdbndpStructuralJsonTypeMapping(string storeType)
         : base(storeType, typeof(JsonTypePlaceholder), dbType: null)
     {
         KdbndpDbType = storeType switch
@@ -74,7 +74,7 @@ public class KdbndpOwnedJsonTypeMapping : JsonTypeMapping
     ///     any release. You should only use it directly in your code with extreme caution and knowing that
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
-    protected KdbndpOwnedJsonTypeMapping(RelationalTypeMappingParameters parameters, KdbndpDbType npgsqlDbType)
+    protected KdbndpStructuralJsonTypeMapping(RelationalTypeMappingParameters parameters, KdbndpDbType npgsqlDbType)
         : base(parameters)
     {
         KdbndpDbType = npgsqlDbType;
@@ -91,7 +91,7 @@ public class KdbndpOwnedJsonTypeMapping : JsonTypeMapping
         if (parameter is not KdbndpParameter npgsqlParameter)
         {
             throw new InvalidOperationException(
-                $"Kdbndp-specific type mapping {nameof(KdbndpOwnedJsonTypeMapping)} being used with non-Kdbndp parameter type {parameter.GetType().Name}");
+                $"Kdbndp-specific type mapping {nameof(KdbndpStructuralJsonTypeMapping)} being used with non-Kdbndp parameter type {parameter.GetType().Name}");
         }
 
         base.ConfigureParameter(parameter);
@@ -123,5 +123,5 @@ public class KdbndpOwnedJsonTypeMapping : JsonTypeMapping
     ///     doing so can result in application failures when updating to a new Entity Framework Core release.
     /// </summary>
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
-        => new KdbndpOwnedJsonTypeMapping(parameters, KdbndpDbType);
+        => new KdbndpStructuralJsonTypeMapping(parameters, KdbndpDbType);
 }

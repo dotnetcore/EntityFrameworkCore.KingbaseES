@@ -243,7 +243,7 @@ public class KdbndpQueryableMethodTranslatingExpressionVisitor : RelationalQuery
         };
 
         var jsonTypeMapping = jsonQueryExpression.JsonColumn.TypeMapping!;
-        Check.DebugAssert(jsonTypeMapping is KdbndpOwnedJsonTypeMapping, "JSON column has a non-JSON mapping");
+        Check.DebugAssert(jsonTypeMapping is KdbndpStructuralJsonTypeMapping, "JSON column has a non-JSON mapping");
 
         // We now add all of projected entity's the properties and navigations into the jsonb_to_recordset's AS clause, which defines the
         // names and types of columns to come out of the JSON fragments.

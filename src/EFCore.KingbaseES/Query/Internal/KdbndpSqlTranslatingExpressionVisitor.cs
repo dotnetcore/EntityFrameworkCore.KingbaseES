@@ -244,7 +244,7 @@ public class KdbndpSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExp
             case SqlBinaryExpression
             {
                 OperatorType: ExpressionType.Equal or ExpressionType.NotEqual,
-                Left: JsonScalarExpression { TypeMapping: KdbndpOwnedJsonTypeMapping } operand,
+                Left: JsonScalarExpression { TypeMapping: KdbndpStructuralJsonTypeMapping } operand,
                 Right: SqlConstantExpression { Value: null }
             } binary:
             {
@@ -257,7 +257,7 @@ public class KdbndpSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExp
             {
                 OperatorType: ExpressionType.Equal or ExpressionType.NotEqual,
                 Left: SqlConstantExpression { Value: null },
-                Right: JsonScalarExpression { TypeMapping: KdbndpOwnedJsonTypeMapping } operand
+                Right: JsonScalarExpression { TypeMapping: KdbndpStructuralJsonTypeMapping } operand
             } binary:
             {
                 return binary.Update(
@@ -270,7 +270,7 @@ public class KdbndpSqlTranslatingExpressionVisitor : RelationalSqlTranslatingExp
             // SqlNullabilityProcessor. We recognize both here.
             case SqlUnaryExpression
             {
-                Operand: JsonScalarExpression { TypeMapping: KdbndpOwnedJsonTypeMapping } operand
+                Operand: JsonScalarExpression { TypeMapping: KdbndpStructuralJsonTypeMapping } operand
             } unary:
             {
                 return unary.Update(

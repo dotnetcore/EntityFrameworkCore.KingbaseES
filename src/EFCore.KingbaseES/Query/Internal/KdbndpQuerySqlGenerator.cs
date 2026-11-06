@@ -1075,7 +1075,7 @@ public class KdbndpQuerySqlGenerator : QuerySqlGenerator
         {
             // Nested JSON structural type. We want the json/jsonb fragment in this case (not text), so we can perform further JSON
             // operations on it.
-            case KdbndpOwnedJsonTypeMapping:
+            case KdbndpStructuralJsonTypeMapping:
                 GenerateJsonPath(jsonScalarExpression.Json, returnsText: false, path);
                 break;
 
